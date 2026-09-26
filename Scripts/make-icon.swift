@@ -32,9 +32,8 @@ func roundedRect(_ rect: CGRect, radius: CGFloat) -> CGPath {
 
 /// Draws the icon at `size` points into an ARGB bitmap.
 ///
-/// Concept: a slab of blurred album colour (the wallpaper Lyrical paints),
-/// with a sleeve punched out of it so the wall shows through the record hole,
-/// and the scrubber that floats over the desktop underneath.
+/// Concept: a slab of album colour (the gradient Lyrical paints) with three
+/// lines of lyrics on it, the middle one lit.
 func drawIcon(size: CGFloat) -> CGImage? {
     let colorSpace = CGColorSpaceCreateDeviceRGB()
     guard let ctx = CGContext(
@@ -114,24 +113,17 @@ func drawIcon(size: CGFloat) -> CGImage? {
     }
     ctx.restoreGState()
 
-    // MARK: Sleeve
+    // MARK: Lyric lines
+    //
+    // The carousel in miniature: three rounded bars of "text". The middle one
+    // is wide and bright (the line being sung); its neighbours are narrower and
+    // dimmer.
 
-    let coverSide = plate.width * 0.46
-    let coverRect = CGRect(
-        x: plate.midX - coverSide / 2,
-        y: plate.midY - coverSide / 2 + plate.height * 0.06,
-        width: coverSide,
-        height: coverSide
-    )
-    let coverPath = CGMutablePath()
-    coverPath.addPath(roundedRect(coverRect, radius: coverSide * 0.12))
-    // Spindle hole, punched even-odd so the wall shows through it.
-    coverPath.addEllipse(in: CGRect(
-        x: coverRect.midX - coverSide * 0.115,
-        y: coverRect.midY - coverSide * 0.115,
-        width: coverSide * 0.23,
-        height: coverSide * 0.23
-    ))
+    let barHeight = max(1, plate.height * 0.085)
+    let gap = plate.height * 0.075
+    let rows: [(width: CGFloat, alpha: CGFloat)] = [(0.46, 0.45), (0.64, 0.97), (0.38, 0.45)]
+    let stackHeight = CGFloat(rows.count) * barHeight + CGFloat(rows.count - 1) * gap
+    var y = plate.midY + stackHeight / 2 - barHeight
 
     ctx.saveGState()
     if size >= 64 {
@@ -141,36 +133,15 @@ func drawIcon(size: CGFloat) -> CGImage? {
             color: CGColor(red: 0.10, green: 0.02, blue: 0.16, alpha: 0.45)
         )
     }
-    ctx.addPath(coverPath)
-    ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.97))
-    ctx.fillPath(using: .evenOdd)
+    for row in rows {
+        let width = plate.width * row.width
+        let rect = CGRect(x: plate.midX - width / 2, y: y, width: width, height: barHeight)
+        ctx.addPath(roundedRect(rect, radius: barHeight / 2))
+        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: row.alpha))
+        ctx.fillPath()
+        y -= barHeight + gap
+    }
     ctx.restoreGState()
-
-    // MARK: Scrubber
-    //
-    // The floating control bar, in miniature. Below 32pt it collapses into a
-    // grey smear, so it only gets drawn where it can actually be seen.
-
-    guard size >= 32 else { return ctx.makeImage() }
-
-    let barWidth = plate.width * 0.54
-    let barHeight = max(1, plate.height * 0.045)
-    let barRect = CGRect(
-        x: plate.midX - barWidth / 2,
-        y: coverRect.minY - plate.height * 0.13,
-        width: barWidth,
-        height: barHeight
-    )
-
-    ctx.addPath(roundedRect(barRect, radius: barHeight / 2))
-    ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.34))
-    ctx.fillPath()
-
-    var playedRect = barRect
-    playedRect.size.width = barWidth * 0.62
-    ctx.addPath(roundedRect(playedRect, radius: barHeight / 2))
-    ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.95))
-    ctx.fillPath()
 
     return ctx.makeImage()
 }
