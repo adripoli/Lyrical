@@ -34,6 +34,8 @@ final class NowPlayingStore {
     @ObservationIgnored private let config: ConfigStore
     @ObservationIgnored private let source: NowPlayingSource
     @ObservationIgnored private let isMock: Bool
+    @ObservationIgnored private let permissionCheck: @Sendable () -> AutomationPermissionState
+    @ObservationIgnored private let permissionTimeout: TimeInterval
 
     @ObservationIgnored private var pollTask: Task<Void, Never>?
     @ObservationIgnored private var permissionTask: Task<Void, Never>?
@@ -46,11 +48,16 @@ final class NowPlayingStore {
 
     private static let permissionRecheckInterval: TimeInterval = 10
 
-    init(config: ConfigStore) {
+    init(config: ConfigStore,
+         source: NowPlayingSource? = nil,
+         permissionCheck: @escaping @Sendable () -> AutomationPermissionState = { AutomationPermission.state() },
+         permissionTimeout: TimeInterval = 3) {
         self.config = config
         self.isMock = ProcessInfo.processInfo.environment["LYRICAL_MOCK"] == "1"
-        self.source = isMock ? MockNowPlayingSource() : SpotifyBridge()
-        self.availability = source.availability()
+        self.source = source ?? (isMock ? MockNowPlayingSource() : SpotifyBridge())
+        self.permissionCheck = permissionCheck
+        self.permissionTimeout = permissionTimeout
+        self.availability = self.source.availability()
     }
 
     deinit {
@@ -75,7 +82,15 @@ final class NowPlayingStore {
         registerObservers()
         // Silent check — no dialog. `.undetermined` still polls: the first real
         // scripting call is the right moment for the system prompt to appear.
-        permission = isMock ? .granted : AutomationPermission.state()
+        // Run off the main thread with a timeout: AEDeterminePermissionToAutomateTarget
+        // has been seen to block forever for Spotify, which froze launch before the
+        // wallpaper window ever reached the screen. A reply from the first poll
+        // settles the question anyway.
+        if isMock {
+            permission = .granted
+        } else {
+            checkPermissionInBackground()
+        }
         availability = source.availability()
 
         NSLog("[Lyrical] now playing: availability=%@ permission=%@",
@@ -267,12 +282,50 @@ final class NowPlayingStore {
                 guard !Task.isCancelled, let self else { return }
                 // Poll the status only. Re-asking in a loop is what produces a
                 // dialog storm; the user grants this in System Settings.
-                let state = AutomationPermission.state()
-                guard state != .denied else { continue }
+                guard let state = await Self.checkPermission(self.permissionCheck, timeout: self.permissionTimeout),
+                      state != .denied else { continue }
                 self.permission = state
                 self.updateScheduling()
                 self.refreshNow()
                 return
+            }
+        }
+    }
+
+    private func checkPermissionInBackground() {
+        let check = permissionCheck
+        let timeout = permissionTimeout
+        Task { [weak self] in
+            guard let state = await Self.checkPermission(check, timeout: timeout) else {
+                NSLog("[Lyrical] automation permission check timed out — relying on the first poll")
+                return
+            }
+            guard let self, self.isStarted else { return }
+            // A poll reply may already have proven the grant; don't downgrade it.
+            guard self.permission == .undetermined, state != .undetermined else { return }
+            self.permission = state
+            self.updateScheduling()
+        }
+    }
+
+    /// Runs a possibly-blocking permission check on a background thread and gives
+    /// up after `timeout`. A check that never returns leaks one parked thread,
+    /// which beats a frozen app.
+    nonisolated static func checkPermission(_ check: @escaping @Sendable () -> AutomationPermissionState,
+                                            timeout: TimeInterval) async -> AutomationPermissionState? {
+        final class Once: @unchecked Sendable {
+            private let lock = NSLock()
+            private var done = false
+            func claim() -> Bool { lock.withLock { defer { done = true }; return !done } }
+        }
+        let once = Once()
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let state = check()
+                if once.claim() { continuation.resume(returning: state) }
+            }
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) {
+                if once.claim() { continuation.resume(returning: nil) }
             }
         }
     }
