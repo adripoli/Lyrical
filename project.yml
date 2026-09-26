@@ -1,0 +1,64 @@
+name: Lyrical
+options:
+  bundleIdPrefix: com.lyrical
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  Lyrical:
+    type: application
+    platform: macOS
+    sources:
+      - path: Lyrical
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lyrical.app
+        PRODUCT_NAME: Lyrical
+        INFOPLIST_FILE: Lyrical/Support/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Lyrical/Support/Lyrical.entitlements
+        CODE_SIGN_STYLE: Automatic
+        # Local-dev friendly: Apple Events to Spotify and a desktop-level window
+        # overlay are both awkward under the sandbox, and this never ships on the
+        # App Store. Re-enable + notarize before distributing.
+        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_APP_SANDBOX: NO
+
+  LyricalTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: LyricalTests
+    dependencies:
+      - target: Lyrical
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.lyrical.tests
+
+schemes:
+  Lyrical:
+    build:
+      targets:
+        Lyrical: all
+        LyricalTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - LyricalTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

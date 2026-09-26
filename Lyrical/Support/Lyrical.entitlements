@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Intentionally NOT sandboxed. Lyrical drives Spotify.app over Apple Events
+	  and paints a borderless window at the desktop window level; both are far
+	  smoother outside the sandbox for a personal, non-App-Store tool. That also
+	  means it cannot ship on the Mac App Store — distribute via direct download
+	  + notarization instead.
+	-->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+	<!--
+	  No-op for the unhardened local build, but required the moment the Hardened
+	  Runtime goes on — which Scripts/build-app.sh does for Developer ID builds,
+	  because notarization refuses anything without it. Without this key a
+	  hardened Lyrical is silently denied every Apple Event to Spotify.
+	-->
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+</dict>
+</plist>

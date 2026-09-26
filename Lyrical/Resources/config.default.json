@@ -1,0 +1,19 @@
+{
+  "displays": "all",
+  "showWallpaper": true,
+  "startAtLogin": true,
+
+  "lyricsOffset": 0.25,
+  "fontSizeFraction": 0.045,
+  "fontDesign": "default",
+  "textAlignment": "center",
+  "columnWidthFraction": 0.6,
+  "anchorYFraction": 0.45,
+  "blurInactive": true,
+
+  "backdropBrightnessCap": 0.35,
+  "crossfadeDuration": 0.5,
+
+  "pollIntervalPlaying": 1.0,
+  "pollIntervalPaused": 5.0
+}

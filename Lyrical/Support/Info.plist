@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<!--
+	  Raw .icns rather than an asset catalog: it's one committed file, generated
+	  by Scripts/make-icon.swift. LSUIElement keeps it out of the Dock, but this
+	  is still what Finder, the DMG and Gatekeeper's prompts show.
+	-->
+	<key>CFBundleIconFile</key>
+	<string>Lyrical</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Lyrical</string>
+	<!-- Agent app: lives in the menu bar, no Dock icon, no main window. -->
+	<key>LSUIElement</key>
+	<true/>
+	<!-- Required for the Automation (Apple Events) prompt to appear correctly. -->
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Lyrical reads the currently playing track from Spotify so it can show that song's lyrics.</string>
+</dict>
+</plist>

@@ -1,0 +1,83 @@
+name: Release
+
+# Tag a version and the .dmg/.zip show up on the Releases page:
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# Also runnable by hand from the Actions tab to check packaging without cutting
+# a release (that path builds the artifacts but publishes nothing).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create the release
+
+jobs:
+  build:
+    # macos-26 is what `macos-latest` currently points at; pinned so a runner
+    # rollover can't silently drop the app below its macOS 26 deployment target.
+    runs-on: macos-26
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcodegen --version
+
+      - name: Run tests
+        run: |
+          xcodegen generate
+          xcodebuild -project Lyrical.xcodeproj -scheme Lyrical \
+            -configuration Debug -destination 'platform=macOS' test
+
+      - name: Build app
+        run: ./Scripts/build-app.sh
+
+      - name: Package .dmg and .zip
+        run: ./Scripts/package.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Lyrical
+          path: dist/*
+
+      # Only on a tag push. The build is ad-hoc signed, so the release notes
+      # have to tell people how to get past Gatekeeper — see the README.
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cat > notes.md <<'EOF'
+          ### Install
+
+          1. Download the `.dmg` below and drag **Lyrical** to Applications.
+          2. The first launch is blocked because this build is not notarized —
+             open **System Settings → Privacy & Security**, scroll down, and click
+             **Open Anyway**.
+
+             Or skip that from a terminal:
+
+             ```
+             xattr -dr com.apple.quarantine /Applications/Lyrical.app
+             ```
+
+          3. Lyrical lives in the menu bar (no Dock icon). Approve the
+             **Automation** prompt so it can read what Spotify is playing.
+
+          Requires macOS 26 or later and the Spotify desktop app.
+          EOF
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Lyrical $VERSION" \
+            --notes-file notes.md \
+            dist/*.dmg dist/*.zip
