@@ -56,8 +56,13 @@ struct LyricsWallpaperView: View {
     @ViewBuilder
     private func foreground(_ metrics: CarouselMetrics) -> some View {
         if case .loaded(.synced(let lines)) = lyrics.state {
+            // A whole song is far taller than the screen. Pin the carousel to
+            // exactly the screen, top-aligned, so the overflow hangs off the
+            // bottom; left flexible, it would grow the ZStack and the fixed
+            // outer frame would centre it, lifting the lit line off-screen.
             LyricsCarouselView(lines: lines, activeIndex: lyrics.activeIndex, move: lyrics.lastMove,
                                isPlaying: lyrics.isPlaying, metrics: metrics)
+                .frame(width: screenSize.width, height: screenSize.height, alignment: .top)
         } else {
             TitleCardView(track: lyrics.track, status: LyricsStatusText.titleCard(for: lyrics.state),
                           metrics: metrics)

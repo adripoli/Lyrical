@@ -30,7 +30,7 @@ struct LyricalConfig: Codable, Equatable {
     var fontDesign: FontDesignOption = .standard
     var textAlignment: TextAlignmentOption = .center
     var columnWidthFraction: Double = 0.6    // of screen width
-    var anchorYFraction: Double = 0.45       // from the top
+    var anchorYFraction: Double = 0.5        // from the top
     var blurInactive: Bool = true
     var backdropBrightnessCap: Double = 0.35 // 0…1
 

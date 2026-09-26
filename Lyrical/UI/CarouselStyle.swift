@@ -46,8 +46,9 @@ struct CarouselMetrics: Equatable {
 }
 
 enum CarouselStyle {
-    /// Lines further than this from the focus are laid out but not drawn.
-    static let renderRadius = 10
+    /// Lines further than this from the focus are laid out but not drawn, so
+    /// only the lit line and one neighbour either side are ever visible.
+    static let renderRadius = 1
     static let staggerPerLine = 0.035
     static let inactiveScale: CGFloat = 0.86
 

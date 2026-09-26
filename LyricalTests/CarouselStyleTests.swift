@@ -9,13 +9,13 @@ import XCTest
 final class CarouselStyleTests: XCTestCase {
 
     func testOpacityFallsOffWithDistance() {
-        XCTAssertEqual((0...5).map(CarouselStyle.opacity(distance:)), [1.0, 0.55, 0.38, 0.25, 0.15, 0.15])
+        XCTAssertEqual((0...3).map(CarouselStyle.opacity(distance:)), [1.0, 0.55, 0, 0])
         XCTAssertEqual(CarouselStyle.opacity(distance: CarouselStyle.renderRadius + 1), 0)
     }
 
     func testBlurTableAndSwitch() {
-        XCTAssertEqual((0...4).map { CarouselStyle.blur(distance: $0, enabled: true) }, [0, 0, 1.2, 2.4, 3.6])
-        XCTAssertEqual(CarouselStyle.blur(distance: 4, enabled: false), 0)
+        XCTAssertEqual((0...2).map { CarouselStyle.blur(distance: $0, enabled: true) }, [0, 0, 0])
+        XCTAssertEqual(CarouselStyle.blur(distance: 1, enabled: false), 0)
         XCTAssertEqual(CarouselStyle.blur(distance: CarouselStyle.renderRadius + 1, enabled: true), 0)
     }
 
@@ -46,7 +46,7 @@ final class CarouselStyleTests: XCTestCase {
         let metrics = CarouselMetrics(config: LyricalConfig(), screenSize: CGSize(width: 2000, height: 1000))
         XCTAssertEqual(metrics.fontSize, 45, accuracy: 0.001)
         XCTAssertEqual(metrics.columnWidth, 1200, accuracy: 0.001)
-        XCTAssertEqual(metrics.anchorY, 450, accuracy: 0.001)
+        XCTAssertEqual(metrics.anchorY, 500, accuracy: 0.001)
     }
 
     func testMetricsClampOutOfRangeConfig() {

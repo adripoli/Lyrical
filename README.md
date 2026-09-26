@@ -50,7 +50,7 @@ defaults rather than crashing.
 | `fontDesign` | `"default"` | `"default"`, `"rounded"`, `"serif"` |
 | `textAlignment` | `"center"` | `"center"` or `"leading"` |
 | `columnWidthFraction` | `0.6` | lyrics column width, fraction of screen width |
-| `anchorYFraction` | `0.45` | where the lit line sits, from the top |
+| `anchorYFraction` | `0.5` | where the lit line sits, from the top |
 | `blurInactive` | `true` | blur lines as they get further from the lit one |
 | `backdropBrightnessCap` | `0.35` | keeps the gradient dark enough for white text |
 | `crossfadeDuration` | `0.5` | seconds, between songs |
