@@ -69,7 +69,7 @@ Renames: `COVERWALL_` → `LYRICAL_`, `com.coverwall` → `com.lyrical`.
 | Area | Files | Changes |
 |---|---|---|
 | Spotify | `SpotifyBridge`, `NowPlaying`, `NowPlayingParser`, `PlaybackClock`, `NowPlayingStore`, `AutomationPermission`, `NowPlayingSource` | The mock source gets invented tracks. Transport commands are dropped where nothing uses them. |
-| Artwork | `ArtworkCache`, `ArtworkProvider`, `ArtworkRenderer.fallbackColors(seed:)` and `cgImage(from:)` | The blur pipeline is dropped. |
+| Artwork | `ArtworkCache`, `ArtworkProvider` | The backdrop/blur pipeline and `ArtworkRenderer` are dropped. |
 | Windows | `ArtworkWindow` → `LyricsWindow` | Same desktop window level, `ignoresMouseEvents`, `canJoinAllSpaces` / `stationary`. |
 | App | `AppDelegate`, `OverlayManager`, `StatusBarController`, `main.swift` | `ControlPanelWindow` is removed; new menu items (below). |
 | Config | `Config.swift` | New keys (below). |
@@ -81,8 +81,10 @@ Renames: `COVERWALL_` → `LYRICAL_`, `com.coverwall` → `com.lyrical`.
 **`Lyrics/LyricsModel.swift`**
 - `LyricLine { time: TimeInterval, text: String, isGap: Bool }`
 - `Lyrics { lines: [LyricLine] }`
-- `LyricsState`: `idle`, `loading`, `synced(Lyrics)`, `plain(String)`,
-  `instrumental`, `notFound`, `failed`, `advertisement`
+- `LyricsResult`: `synced([LyricLine])`, `plain(String)`, `instrumental`,
+  `notFound`, `failed`. This is what a lookup returns and what the cache
+  stores.
+- `LyricsState`: `idle`, `loading`, `advertisement`, `loaded(LyricsResult)`
 
 **`Lyrics/LRCParser.swift`** is a pure function from LRC text to `[LyricLine]`.
 - Accepts `[mm:ss]`, `[mm:ss.xx]` and `[mm:ss.xxx]`, and several timestamps on
@@ -132,7 +134,9 @@ Renames: `COVERWALL_` → `LYRICAL_`, `com.coverwall` → `com.lyrical`.
   the cache, then the client, then storing the result.
 - Cancels an in-flight fetch when the track changes, and drops late results by
   comparing track ids.
-- Publishes `state`, `activeIndex` and `lastJumpWasSeek`.
+- Publishes `state`, `activeIndex` and `lastMove` (`advance` when the lit
+  line moved 1–3 lines forward; `jump` otherwise, i.e. for a seek, rewind,
+  skip or repeat).
 - Runs a single `Task` that sleeps exactly until `nextBoundary`, so there's no
   per-frame work. The task re-arms on:
   - play/pause
@@ -151,7 +155,9 @@ Renames: `COVERWALL_` → `LYRICAL_`, `com.coverwall` → `com.lyrical`.
    saturation a little, so white text always reads.
 
 A near-grayscale cover produces a dark neutral palette. If there's no artwork,
-it falls back to `ArtworkRenderer.fallbackColors(seed: albumOrTrackId)`.
+it falls back to `Palette.fallback(seed: albumOrTrackName, cap:)`, a
+deterministic FNV-1a–seeded palette (the same idea as CoverWall's fallback
+gradient).
 
 **`Palette/PaletteStore.swift`** loads artwork through `ArtworkProvider`,
 extracts the palette off the main actor, and publishes it keyed by track.
@@ -181,9 +187,10 @@ status line: "♪ Instrumental", "No lyrics found", "Couldn't reach LRCLIB",
 - Text wraps. Each line's height is measured with `onGeometryChange`, and
   cumulative offsets give each line's midpoint.
 - The stack is offset so the active line's midpoint sits at
-  `anchorYFraction × screenHeight` (default 0.45). Before the first line,
-  line 0 sits just below the anchor, and the intro dots (below) sit on the
-  anchor.
+  `anchorYFraction × screenHeight` (default 0.45). Before the first line
+  nothing is lit: line 0 sits on the anchor, dimmed like a neighbor. A long
+  intro gets a leading gap line (the dots), so in that case the dots sit on
+  the anchor.
 
 **Per-line style by distance `d = |i − active|`**
 
@@ -194,8 +201,10 @@ status line: "♪ Instrumental", "No lyrics found", "Couldn't reach LRCLIB",
 | blur (pt) | 0 | 0 | 1.2 | 2.4 | 3.6 |
 
 - Blur is disabled entirely when `blurInactive = false`.
-- The active line is bold and the others are semibold, with font size
-  `fontSizeFraction × screenHeight` and design `fontDesign`.
+- Every line uses the same bold weight, with font size
+  `fontSizeFraction × screenHeight` and design `fontDesign`. A weight change
+  on the lit line would re-wrap it and make the list jitter mid-spring, so
+  emphasis comes from scale, opacity and blur only.
 - Scaling uses the line's alignment edge as its anchor.
 - Only lines within ±10 of the active one render (the others are
   `opacity(0)` placeholders that keep their height), which bounds the blur
@@ -205,8 +214,8 @@ status line: "♪ Instrumental", "No lyrics found", "Couldn't reach LRCLIB",
 - A normal advance of one line animates offset and style with
   `.spring(response: 0.55, dampingFraction: 0.85)`. Each line's animation is
   delayed by `0.035 × d`, which produces the "wave".
-- A seek, or a jump of more than 3 lines, uses a 0.25 s ease-out with no
-  stagger.
+- Any other move (a seek, rewind, skip, or a jump of more than 3 lines) uses a
+  0.25 s ease-out with no stagger.
 - Gap lines, and an intro of more than 4 s before the first line, render as
   three dots. The dots breathe (opacity pulse) only while that gap is active
   and Spotify is playing, and hold still otherwise.
