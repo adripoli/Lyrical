@@ -33,7 +33,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let provider: LyricsProviding = isMock
             ? MockLyricsProvider()
             : CachedLyricsProvider(client: LRCLIBClient(),
-                                   cache: LyricsCache(directory: LyricsCache.defaultDirectory))
+                                   cache: LyricsCache(directory: LyricsCache.defaultDirectory),
+                                   wordTiming: NetEaseClient(),
+                                   isWordTimingEnabled: { await config.current.lookUpWordTiming })
 
         let nowPlaying = NowPlayingStore(config: config)
         let lyrics = LyricsStore(provider: provider, offset: { config.current.lyricsOffset })

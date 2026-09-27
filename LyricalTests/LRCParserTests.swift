@@ -78,6 +78,35 @@ final class LRCParserTests: XCTestCase {
         XCTAssertEqual(lines.first?.text, "hello world")
     }
 
+    func testEnhancedWordTimestampsBecomeWords() {
+        let words = LRCParser.parse("[00:01.00]<00:01.00>hello <00:01.50>world <00:02.25>").first?.words
+        XCTAssertEqual(words, [
+            LyricWord(text: "hello ", start: 1.0, end: 1.5),
+            LyricWord(text: "world", start: 1.5, end: 2.25),
+        ])
+    }
+
+    func testSyllableStampsDoNotSplitTheWordWithASpace() {
+        let words = LRCParser.parse("[00:01.00]<00:01.00>hel<00:01.20>lo").first?.words ?? []
+        XCTAssertEqual(words.map(\.text).joined(), "hello")
+        XCTAssertEqual(words.last?.end, 1.2)   // no end stamp: WordTiming fills it in
+    }
+
+    func testPlainLinesHaveNoWords() {
+        XCTAssertNil(LRCParser.parse("[00:01.00]hello world").first?.words)
+    }
+
+    func testRepeatedLineShiftsItsWords() {
+        let lines = LRCParser.parse("[00:01.00][00:11.00]<00:01.00>a <00:01.50>b")
+        XCTAssertEqual(lines.map { $0.words?.first?.start }, [1.0, 11.0])
+        XCTAssertEqual(lines.map { $0.words?.last?.start }, [1.5, 11.5])
+    }
+
+    func testOffsetTagShiftsWords() {
+        let words = LRCParser.parse("[offset:+500]\n[00:02.00]<00:02.00>a <00:03.00>b").first?.words
+        XCTAssertEqual(words?.map(\.start), [1.5, 2.5])
+    }
+
     func testSurroundingWhitespaceIsTrimmed() {
         XCTAssertEqual(LRCParser.parse("  [00:01.00]   spaced out   ").first?.text, "spaced out")
     }

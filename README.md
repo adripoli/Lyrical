@@ -8,7 +8,13 @@ up an Apple Music-style carousel over a gradient pulled from the album art.
 - Fully click-through: desktop icons, drag-select and right-click still work.
 - Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics
   database. No account or API key.
-- About zero CPU between lines: it wakes exactly when the next line starts.
+- Words swell and glow as they're sung, on real word timing where it
+  exists: LRCLIB's word-synced Lyricsfiles, or NetEase Cloud Music's
+  word-by-word lyrics laid onto LRCLIB's lines (about 93% of lines in
+  testing). Otherwise the timing is estimated from syllables and the gap to
+  the next line, using a model fitted to ~17,000 real word stamps.
+- Light on CPU: only the lit line redraws, and only while music plays.
+  Set `animateWords` to `false` for zero CPU between lines.
 
 Requires macOS 26 and the Spotify desktop app. Sibling of
 [CoverWall](https://github.com/adripoli/CoverWall).
@@ -52,6 +58,8 @@ defaults rather than crashing.
 | `columnWidthFraction` | `0.6` | lyrics column width, fraction of screen width |
 | `anchorYFraction` | `0.5` | where the lit line sits, from the top |
 | `blurInactive` | `true` | blur lines as they get further from the lit one |
+| `animateWords` | `true` | each word grows and glows as it's sung (redraws the lit line every frame while playing) |
+| `lookUpWordTiming` | `true` | look up real word timing on NetEase Cloud Music (sends the song's title and artist there) |
 | `backdropBrightnessCap` | `0.35` | keeps the gradient dark enough for white text |
 | `crossfadeDuration` | `0.5` | seconds, between songs |
 | `showWallpaper` | `true` | |
@@ -73,6 +81,10 @@ make test-one T=LRCParserTests   # one test class
 make app                         # build/Lyrical.app
 LYRICAL_MOCK=1 build/Lyrical.app/Contents/MacOS/Lyrical
 ```
+
+Word timing is measured, not eyeballed: `Scripts/word-timing-eval/fetch-corpus.py`
+downloads ground truth (kept in `build/`, out of git), and
+`Scripts/word-timing-eval/run.sh` scores the app's own timing code against it.
 
 Mock mode plays an invented four-song playlist with invented lyrics. It needs
 no Spotify, no network, and no permission prompt, and it runs through every

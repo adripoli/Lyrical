@@ -10,6 +10,8 @@
   "columnWidthFraction": 0.6,
   "anchorYFraction": 0.5,
   "blurInactive": true,
+  "animateWords": true,
+  "lookUpWordTiming": true,
 
   "backdropBrightnessCap": 0.35,
   "crossfadeDuration": 0.5,

@@ -16,11 +16,14 @@ struct LyricsCarouselView: View {
     let move: LyricsMove
     let isPlaying: Bool
     let metrics: CarouselMetrics
+    /// Where the singer is, for word-by-word highlighting on the lit line.
+    var position: () -> TimeInterval = { 0 }
 
     @State private var heights: [Int: CGFloat] = [:]
 
     var body: some View {
         let focus = min(activeIndex ?? 0, max(lines.count - 1, 0))
+        let variants = SungLineVariant.variants(for: lines)
         let offset = CarouselStyle.offset(focus: focus, heights: heights,
                                           estimate: metrics.fontSize * 1.3,
                                           spacing: metrics.lineSpacing, anchorY: metrics.anchorY)
@@ -29,7 +32,7 @@ struct LyricsCarouselView: View {
             ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
                 let distance = CarouselStyle.distance(of: index, active: activeIndex)
 
-                row(line, isActive: index == activeIndex)
+                row(line, variant: variants[index], isActive: index == activeIndex)
                     .frame(width: metrics.columnWidth, alignment: metrics.frameAlignment)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { heights[index] = $0 }
                     .scaleEffect(CarouselStyle.scale(distance: distance), anchor: metrics.scaleAnchor)
@@ -44,19 +47,32 @@ struct LyricsCarouselView: View {
     }
 
     @ViewBuilder
-    private func row(_ line: LyricLine, isActive: Bool) -> some View {
+    private func row(_ line: LyricLine, variant: SungLineVariant, isActive: Bool) -> some View {
         if line.isGap {
             GapDots(size: metrics.fontSize * 0.28, isAnimating: isActive && isPlaying)
                 .frame(height: metrics.fontSize * 1.1)
         } else {
             // One weight for every line: a weight change on the lit line would
             // re-wrap it and make the list jitter mid-spring.
-            Text(line.text)
+            words(line, variant: variant, isActive: isActive)
                 .font(.system(size: metrics.fontSize, weight: .bold, design: metrics.fontDesign))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(metrics.textAlignment)
                 .fixedSize(horizontal: false, vertical: true)
                 .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
+        }
+    }
+}
+
+extension LyricsCarouselView {
+    @ViewBuilder
+    private func words(_ line: LyricLine, variant: SungLineVariant, isActive: Bool) -> some View {
+        if metrics.animateWords {
+            SungLineView(line: line, variant: variant, isLit: isActive, isPlaying: isPlaying,
+                         fontSize: metrics.fontSize, centered: metrics.alignment == .center,
+                         position: position)
+        } else {
+            Text(line.text)
         }
     }
 }

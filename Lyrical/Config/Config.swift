@@ -32,6 +32,8 @@ struct LyricalConfig: Codable, Equatable {
     var columnWidthFraction: Double = 0.6    // of screen width
     var anchorYFraction: Double = 0.5        // from the top
     var blurInactive: Bool = true
+    var animateWords: Bool = true            // grow each word as it's sung
+    var lookUpWordTiming: Bool = true        // real word timing from NetEase where it has it
     var backdropBrightnessCap: Double = 0.35 // 0…1
 
     init() {}
@@ -39,7 +41,8 @@ struct LyricalConfig: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case displays, showWallpaper, startAtLogin, pollIntervalPlaying, pollIntervalPaused
         case crossfadeDuration, lyricsOffset, fontSizeFraction, fontDesign, textAlignment
-        case columnWidthFraction, anchorYFraction, blurInactive, backdropBrightnessCap
+        case columnWidthFraction, anchorYFraction, blurInactive, animateWords, lookUpWordTiming
+        case backdropBrightnessCap
     }
 
     /// Per-key decoding so a partial file (or one written by an older/newer
@@ -61,6 +64,8 @@ struct LyricalConfig: Codable, Equatable {
         columnWidthFraction   = try c.decodeIfPresent(Double.self, forKey: .columnWidthFraction) ?? d.columnWidthFraction
         anchorYFraction       = try c.decodeIfPresent(Double.self, forKey: .anchorYFraction) ?? d.anchorYFraction
         blurInactive          = try c.decodeIfPresent(Bool.self, forKey: .blurInactive) ?? d.blurInactive
+        animateWords          = try c.decodeIfPresent(Bool.self, forKey: .animateWords) ?? d.animateWords
+        lookUpWordTiming      = try c.decodeIfPresent(Bool.self, forKey: .lookUpWordTiming) ?? d.lookUpWordTiming
         backdropBrightnessCap = try c.decodeIfPresent(Double.self, forKey: .backdropBrightnessCap) ?? d.backdropBrightnessCap
     }
 }

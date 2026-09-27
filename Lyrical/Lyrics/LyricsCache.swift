@@ -5,6 +5,8 @@
 //  One small JSON file per Spotify track id. Found lyrics never expire;
 //  "not found" does after a week, because LRCLIB is crowd-sourced and the
 //  song may have been added since. Failures are never written at all.
+//  Each entry also remembers whether real word timing has been looked for,
+//  so it's looked for once per song, including songs cached before it was.
 //
 
 import Foundation
@@ -20,9 +22,11 @@ actor LyricsCache {
 
     static let notFoundLifetime: TimeInterval = 7 * 24 * 3600
 
-    private struct Entry: Codable {
+    struct Entry: Codable, Equatable {
         var result: LyricsResult
         var storedAt: Date
+        /// Optional so entries written before it existed still decode (as false).
+        var wordTimingChecked: Bool?
     }
 
     private let directory: URL
@@ -34,6 +38,10 @@ actor LyricsCache {
     }
 
     func result(for trackID: String) -> LyricsResult? {
+        entry(for: trackID)?.result
+    }
+
+    func entry(for trackID: String) -> Entry? {
         let url = fileURL(trackID)
         guard let data = try? Data(contentsOf: url) else { return nil }
 
@@ -46,14 +54,15 @@ actor LyricsCache {
             try? FileManager.default.removeItem(at: url)
             return nil
         }
-        return entry.result
+        return entry
     }
 
-    func store(_ result: LyricsResult, for trackID: String) {
+    func store(_ result: LyricsResult, for trackID: String, wordTimingChecked: Bool = false) {
         guard result != .failed else { return }
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            let data = try JSONEncoder().encode(Entry(result: result, storedAt: now()))
+            let entry = Entry(result: result, storedAt: now(), wordTimingChecked: wordTimingChecked)
+            let data = try JSONEncoder().encode(entry)
             try data.write(to: fileURL(trackID), options: .atomic)
         } catch {
             NSLog("[Lyrical] lyrics cache write failed (%@)", "\(error)")

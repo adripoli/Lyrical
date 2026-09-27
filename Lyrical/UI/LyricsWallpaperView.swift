@@ -61,7 +61,8 @@ struct LyricsWallpaperView: View {
             // bottom; left flexible, it would grow the ZStack and the fixed
             // outer frame would centre it, lifting the lit line off-screen.
             LyricsCarouselView(lines: lines, activeIndex: lyrics.activeIndex, move: lyrics.lastMove,
-                               isPlaying: lyrics.isPlaying, metrics: metrics)
+                               isPlaying: lyrics.isPlaying, metrics: metrics,
+                               position: { [lyrics] in lyrics.singingPosition() })
                 .frame(width: screenSize.width, height: screenSize.height, alignment: .top)
         } else {
             TitleCardView(track: lyrics.track, status: LyricsStatusText.titleCard(for: lyrics.state),

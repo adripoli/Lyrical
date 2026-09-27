@@ -27,6 +27,13 @@ final class FakeLyricsProvider: LyricsProviding, @unchecked Sendable {
         return result
     }
 
+    /// Word-timed lines handed out after the lines, per track id.
+    var timed: [String: [LyricLine]] = [:]
+
+    func wordTimed(_ lines: [LyricLine], for track: TrackInfo) async -> [LyricLine]? {
+        lock.withLock { timed[track.id] }
+    }
+
     func invalidate(trackID: String) async {
         lock.withLock { invalidated.append(trackID) }
     }
@@ -92,8 +99,20 @@ final class LyricsStoreTests: XCTestCase {
 
         await store.waitForPendingFetch()
 
-        XCTAssertEqual(store.state, .loaded(.synced(LyricsTimeline.withIntroGap(lines))))
+        XCTAssertEqual(store.state, .loaded(.synced(WordTiming.fill(LyricsTimeline.withIntroGap(lines)))))
         XCTAssertEqual(store.lines.first?.isGap, true)
+    }
+
+    func testRealWordTimingReplacesTheEstimateOnceItArrives() async {
+        var timed = lines
+        timed[0].words = [LyricWord(text: "a", start: 10.3, end: 11)]
+        provider.script["t"] = [.synced(lines)]
+        provider.timed["t"] = timed
+        store.setTrack(track("t"))
+        await store.waitForPendingFetch()
+
+        XCTAssertEqual(store.state, .loaded(.synced(WordTiming.fill(LyricsTimeline.withIntroGap(timed)))))
+        XCTAssertEqual(store.lines[1].words?.first?.start, 10.3)
     }
 
     func testActiveIndexFollowsClockAndAdvances() async {
@@ -191,7 +210,7 @@ final class LyricsStoreTests: XCTestCase {
 
         try await Task.sleep(for: .milliseconds(300))
 
-        XCTAssertEqual(store.state, .loaded(.synced(LyricsTimeline.withIntroGap(lines))))
+        XCTAssertEqual(store.state, .loaded(.synced(WordTiming.fill(LyricsTimeline.withIntroGap(lines)))))
         XCTAssertEqual(provider.requested, ["t", "t"])
     }
 

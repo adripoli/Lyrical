@@ -17,6 +17,7 @@ struct CarouselMetrics: Equatable {
     var alignment: TextAlignmentOption
     var design: FontDesignOption
     var blurInactive: Bool
+    var animateWords: Bool
 
     init(config: LyricalConfig, screenSize: CGSize) {
         func clamp(_ value: Double, _ low: Double, _ high: Double) -> CGFloat {
@@ -29,6 +30,7 @@ struct CarouselMetrics: Equatable {
         alignment = config.textAlignment
         design = config.fontDesign
         blurInactive = config.blurInactive
+        animateWords = config.animateWords
     }
 
     var horizontalAlignment: HorizontalAlignment { alignment == .leading ? .leading : .center }

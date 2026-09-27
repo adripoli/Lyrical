@@ -2,9 +2,10 @@
 //  LRCLIBClient.swift
 //  Lyrical
 //
-//  https://lrclib.net — free, keyless, line-synced lyrics. One exact lookup
-//  (/api/get) and, on a miss, one fuzzy search with a cleaned-up title
-//  matched on duration. Never throws: every outcome is a LyricsResult, and
+//  https://lrclib.net — free, keyless, line-synced lyrics, and word-synced
+//  ones (in its Lyricsfile format) where someone has done the work. One
+//  exact lookup (/api/get) and, on a miss, one fuzzy search with a
+//  cleaned-up title matched on duration. Never throws: every outcome is a LyricsResult, and
 //  anything network-shaped is `.failed` so the store knows to retry.
 //
 
@@ -15,16 +16,29 @@ struct LRCLIBRecord: Decodable, Equatable {
     var instrumental: Bool?
     var plainLyrics: String?
     var syncedLyrics: String?
+    /// The same lyrics as a Lyricsfile, which is where word timing lives.
+    var lyricsfile: String?
+    var hasWordSync: Bool?
 
     init(duration: Double? = nil, instrumental: Bool? = nil,
-         plainLyrics: String? = nil, syncedLyrics: String? = nil) {
+         plainLyrics: String? = nil, syncedLyrics: String? = nil,
+         lyricsfile: String? = nil, hasWordSync: Bool? = nil) {
         self.duration = duration
         self.instrumental = instrumental
         self.plainLyrics = plainLyrics
         self.syncedLyrics = syncedLyrics
+        self.lyricsfile = lyricsfile
+        self.hasWordSync = hasWordSync
     }
 
     var hasSynced: Bool { !(syncedLyrics ?? "").isEmpty }
+
+    /// Worth reading the Lyricsfile for. Older responses don't say, so a
+    /// file that mentions words is tried either way.
+    var mayHaveWords: Bool {
+        guard hasWordSync != false, let lyricsfile else { return false }
+        return lyricsfile.contains("words:")
+    }
 }
 
 struct LRCLIBClient: Sendable {
@@ -95,6 +109,10 @@ struct LRCLIBClient: Sendable {
 
     static func result(from record: LRCLIBRecord) -> LyricsResult {
         if record.instrumental == true { return .instrumental }
+        if record.mayHaveWords, let file = record.lyricsfile,
+           let lines = Lyricsfile.wordSyncedLines(from: file), lines.contains(where: { !$0.isGap }) {
+            return .synced(lines)
+        }
         if let synced = record.syncedLyrics {
             let lines = LRCParser.parse(synced)
             if lines.contains(where: { !$0.isGap }) { return .synced(lines) }
@@ -106,7 +124,7 @@ struct LRCLIBClient: Sendable {
     }
 
     /// Within ±3 s of the track (any duration when ours is unknown), synced
-    /// before plain, then closest duration.
+    /// before plain, word-synced before line-synced, then closest duration.
     static func bestMatch(_ records: [LRCLIBRecord], duration: TimeInterval) -> LRCLIBRecord? {
         func delta(_ record: LRCLIBRecord) -> TimeInterval {
             guard duration > 0, let d = record.duration else { return 0 }
@@ -119,6 +137,7 @@ struct LRCLIBClient: Sendable {
         }
         return candidates.min { a, b in
             if a.hasSynced != b.hasSynced { return a.hasSynced }
+            if (a.hasWordSync == true) != (b.hasWordSync == true) { return a.hasWordSync == true }
             return delta(a) < delta(b)
         }
     }

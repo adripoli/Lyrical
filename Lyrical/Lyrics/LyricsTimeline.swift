@@ -15,6 +15,10 @@ enum LyricsTimeline {
     /// instead of a line of text that won't be sung for a while.
     static let introGapThreshold: TimeInterval = 4
 
+    /// The part of the default `lyricsOffset` that exists only so the
+    /// carousel's spring settles before the singer arrives.
+    static let carouselLead: TimeInterval = LyricalConfig().lyricsOffset
+
     /// Index of the line being sung at `position`, or nil before the first line.
     static func activeIndex(in lines: [LyricLine], at position: TimeInterval, offset: TimeInterval) -> Int? {
         let t = position + offset

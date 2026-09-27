@@ -32,6 +32,8 @@ final class ConfigTests: XCTestCase {
           "columnWidthFraction": 0.8,
           "anchorYFraction": 0.3,
           "blurInactive": false,
+          "animateWords": false,
+          "lookUpWordTiming": false,
           "backdropBrightnessCap": 0.2
         }
         """)
@@ -49,6 +51,8 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(config.columnWidthFraction, 0.8)
         XCTAssertEqual(config.anchorYFraction, 0.3)
         XCTAssertFalse(config.blurInactive)
+        XCTAssertFalse(config.animateWords)
+        XCTAssertFalse(config.lookUpWordTiming)
         XCTAssertEqual(config.backdropBrightnessCap, 0.2)
     }
 

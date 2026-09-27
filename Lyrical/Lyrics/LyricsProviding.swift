@@ -3,21 +3,34 @@
 //  Lyrical
 //
 //  The seam between LyricsStore and where lyrics come from. The real one
-//  checks the disk cache, then asks LRCLIB. The mock (LYRICAL_MOCK=1) serves
-//  invented lyrics for the invented mock playlist, so every wallpaper state
-//  can be demoed offline. None of the text below is from a real song.
+//  checks the disk cache, then asks LRCLIB; once the lines are showing, it
+//  looks up real word timing for them from NetEase. The mock
+//  (LYRICAL_MOCK=1) serves invented lyrics for the invented mock playlist,
+//  so every wallpaper state can be demoed offline. None of the text below
+//  is from a real song.
 //
 
 import Foundation
 
 protocol LyricsProviding: Sendable {
     func lyrics(for track: TrackInfo) async -> LyricsResult
+    /// `lines` (as `lyrics(for:)` gave them) with real word timing, or nil
+    /// if there's none to be had. Asked after the lines are already showing,
+    /// so a slow answer never holds them up.
+    func wordTimed(_ lines: [LyricLine], for track: TrackInfo) async -> [LyricLine]?
     func invalidate(trackID: String) async
+}
+
+extension LyricsProviding {
+    func wordTimed(_ lines: [LyricLine], for track: TrackInfo) async -> [LyricLine]? { nil }
 }
 
 struct CachedLyricsProvider: LyricsProviding {
     let client: LRCLIBClient
     let cache: LyricsCache
+    var wordTiming: NetEaseClient? = nil
+    /// Read at each lookup, so the config switch works without a restart.
+    var isWordTimingEnabled: @Sendable () async -> Bool = { true }
 
     func lyrics(for track: TrackInfo) async -> LyricsResult {
         if let cached = await cache.result(for: track.id) { return cached }
@@ -25,6 +38,27 @@ struct CachedLyricsProvider: LyricsProviding {
                                          album: track.album, duration: track.duration)
         await cache.store(result, for: track.id)   // ignores .failed
         return result
+    }
+
+    /// Looked up once per song: a hit or a miss is remembered, a network
+    /// failure isn't, so it's tried again next time the song plays.
+    func wordTimed(_ lines: [LyricLine], for track: TrackInfo) async -> [LyricLine]? {
+        guard let wordTiming, lines.allSatisfy({ ($0.words ?? []).isEmpty }),
+              await isWordTimingEnabled(),
+              await cache.entry(for: track.id)?.wordTimingChecked != true else { return nil }
+
+        switch await wordTiming.wordTiming(title: track.name, artist: track.artist, duration: track.duration) {
+        case .failed:
+            return nil
+        case .none:
+            await cache.store(.synced(lines), for: track.id, wordTimingChecked: true)
+            return nil
+        case .found(let segments):
+            // A few hundred thousand letter pairs: keep it off whichever actor asked.
+            let timed = await Task.detached(priority: .utility) { WordSync.attach(segments, to: lines) }.value
+            await cache.store(.synced(timed ?? lines), for: track.id, wordTimingChecked: true)
+            return timed
+        }
     }
 
     func invalidate(trackID: String) async {

@@ -106,6 +106,14 @@ final class LyricsStore {
         reschedule()
     }
 
+    /// Where the singer is right now, for word-by-word highlighting. Read
+    /// every frame by the lit line, so it's a plain computation off the
+    /// interpolated clock. It honours the user's timing nudges but not the
+    /// lead lines get for their carousel spring: words should land on the beat.
+    func singingPosition() -> TimeInterval {
+        clock.position(at: now()) + offset() - LyricsTimeline.carouselLead
+    }
+
     func reload() {
         guard let track, !track.isAd else { return }
         retryDelay = initialRetryDelay
@@ -132,7 +140,21 @@ final class LyricsStore {
             let result = await provider.lyrics(for: track)
             guard !Task.isCancelled else { return }
             self?.apply(result, for: track)
+
+            // The lines are up; now see if their words can be timed for real.
+            guard case .synced(let lines) = result,
+                  let timed = await provider.wordTimed(lines, for: track),
+                  !Task.isCancelled else { return }
+            self?.applyWordTiming(timed, for: track)
         }
+    }
+
+    /// Same lines, same times, so the lit line and carousel stay put; only
+    /// the words underneath change.
+    private func applyWordTiming(_ lines: [LyricLine], for fetched: TrackInfo) {
+        guard fetched.id == track?.id, case .loaded(.synced) = state else { return }
+        state = .loaded(.synced(WordTiming.fill(LyricsTimeline.withIntroGap(lines))))
+        resync()
     }
 
     private func apply(_ result: LyricsResult, for fetched: TrackInfo) {
@@ -141,7 +163,7 @@ final class LyricsStore {
 
         switch result {
         case .synced(let lines):
-            state = .loaded(.synced(LyricsTimeline.withIntroGap(lines)))
+            state = .loaded(.synced(WordTiming.fill(LyricsTimeline.withIntroGap(lines))))
         case .failed:
             state = .loaded(.failed)
             let delay = retryDelay
