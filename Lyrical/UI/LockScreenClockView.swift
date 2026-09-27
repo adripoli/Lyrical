@@ -18,7 +18,7 @@ struct LockScreenClockView: View {
     var body: some View {
         TimelineView(.everyMinute) { context in
             let timeSize = screenSize.height * 0.12
-            VStack(spacing: 0) {
+            VStack(spacing: screenSize.height * 0.02) {
                 Text(context.date, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day())
                     .font(.system(size: screenSize.height * 0.028, weight: .semibold, design: design))
                     .foregroundStyle(.white)
@@ -28,7 +28,7 @@ struct LockScreenClockView: View {
                 // glyph outlines gives glass digits rather than a glass pill.
                 Color.clear
                     .frame(width: screenSize.width, height: timeSize * 0.8)
-                    .glassEffect(.clear.tint(.white.opacity(0.12)),
+                    .glassEffect(.clear.tint(.white.opacity(0.8)),
                                  in: GlyphShape(text: Self.time(context.date), size: timeSize, design: design))
                     .accessibilityElement()
                     .accessibilityLabel(Text(context.date, format: .dateTime.hour().minute()))
