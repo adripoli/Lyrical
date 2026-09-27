@@ -35,7 +35,9 @@ final class ConfigTests: XCTestCase {
           "blurInactive": false,
           "animateWords": false,
           "lookUpWordTiming": false,
-          "backdropBrightnessCap": 0.2
+          "backdropBlurRadius": 25,
+          "backdropDim": 0.5,
+          "coverHeightFraction": 0.4
         }
         """)
 
@@ -55,7 +57,9 @@ final class ConfigTests: XCTestCase {
         XCTAssertFalse(config.blurInactive)
         XCTAssertFalse(config.animateWords)
         XCTAssertFalse(config.lookUpWordTiming)
-        XCTAssertEqual(config.backdropBrightnessCap, 0.2)
+        XCTAssertEqual(config.backdropBlurRadius, 25)
+        XCTAssertEqual(config.backdropDim, 0.5)
+        XCTAssertEqual(config.coverHeightFraction, 0.4)
     }
 
     func testDefaultFontDesignDecodesFromTheWordDefault() throws {

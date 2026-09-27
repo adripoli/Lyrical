@@ -3,8 +3,10 @@
 //  Lyrical
 //
 //  Fetch side of the artwork pipeline: cache lookup, and one network request
-//  per content hash no matter how many callers ask at once. Everything here
-//  runs off the main actor. Lyrical only needs the cover to pull colours from.
+//  per content hash no matter how many callers ask at once, and memoized
+//  backdrop rendering per (hash × screen size), so the desktop and lock-screen
+//  windows on one display share a single blur. Everything here runs off the
+//  main actor.
 //
 
 import AppKit
@@ -20,7 +22,9 @@ actor ArtworkProvider {
     private let cache: ArtworkCache
     private let session: URLSession
     private var inFlight: [String: Task<NSImage, Error>] = [:]
+    private var backdrops: [(key: String, image: NSImage)] = []
 
+    private static let backdropLimit = 6
 
     init(cache: ArtworkCache, session: URLSession = ArtworkProvider.makeSession()) {
         self.cache = cache
@@ -88,4 +92,27 @@ actor ArtworkProvider {
         return data
     }
 
+    // MARK: - Backdrop
+
+    /// Memoized per (hash, size). Runs on the provider's executor, never the main one.
+    func backdrop(forHash hash: String, cover: NSImage, size: CGSize,
+                  blurRadius: CGFloat, dim: Double) async -> NSImage? {
+        guard size.width >= 1, size.height >= 1 else { return nil }
+
+        // Blur and dim are part of the key so a config hot-reload actually produces
+        // a new bitmap instead of serving the one rendered with the old settings.
+        let key = "\(hash)@\(Int(size.width))x\(Int(size.height))#\(blurRadius)/\(dim)"
+        if let index = backdrops.firstIndex(where: { $0.key == key }) {
+            let hit = backdrops.remove(at: index)
+            backdrops.append(hit)
+            return hit.image
+        }
+
+        let image = ArtworkRenderer.blurred(cover, targetSize: size,
+                                            blurRadius: blurRadius, dim: dim)
+
+        backdrops.append((key, image))
+        if backdrops.count > Self.backdropLimit { backdrops.removeFirst() }
+        return image
+    }
 }

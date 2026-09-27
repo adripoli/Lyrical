@@ -26,7 +26,8 @@ struct SungLineView: View {
     var body: some View {
         if let words = line.words, !words.isEmpty {
             let text = Self.text(for: words)
-            TimelineView(.animation(paused: !(isLit && isPlaying))) { _ in
+            TimelineView(.animation(minimumInterval: Self.minimumFrameInterval(
+                lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled), paused: !(isLit && isPlaying))) { _ in
                 text.textRenderer(SungWordsRenderer(words: words, variant: variant,
                                                     time: isLit ? position() : nil,
                                                     fontSize: fontSize, centered: centered))
@@ -34,6 +35,14 @@ struct SungLineView: View {
         } else {
             Text(line.text)
         }
+    }
+
+    /// nil runs at the display's rate. Low Power Mode, which the user turns on
+    /// to stretch the battery, gets 30 fps: each frame re-rasterises the
+    /// line's glyphs and glow, which on an Intel Mac is most of the lock
+    /// screen's cost.
+    static func minimumFrameInterval(lowPower: Bool) -> Double? {
+        lowPower ? 1.0 / 30 : nil
     }
 
     /// The words as one Text, each tagged with its index so the renderer can

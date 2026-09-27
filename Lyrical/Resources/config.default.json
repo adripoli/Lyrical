@@ -2,6 +2,7 @@
   "displays": "all",
   "showWallpaper": true,
   "showOnLockScreen": true,
+  "showControls": true,
   "startAtLogin": true,
 
   "lyricsOffset": 0.25,
@@ -14,7 +15,14 @@
   "animateWords": true,
   "lookUpWordTiming": true,
 
-  "backdropBrightnessCap": 0.35,
+  "backdropBlurRadius": 40,
+  "backdropDim": 0.35,
+  "coverHeightFraction": 0.55,
+  "controlBarOpacity": 0.7,
+  "controlBarHoverOpacity": 1.0,
+  "controlBarBottomInset": 24,
+  "controlBarWidth": 520,
+  "controlPanelLevel": "aboveIcons",
   "crossfadeDuration": 0.5,
 
   "pollIntervalPlaying": 1.0,

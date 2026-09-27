@@ -77,8 +77,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         if hasTrack { info(menu, LyricsStatusText.menu(for: lyrics.state)) }
         menu.addItem(.separator())
 
-        add(menu, "Show Lyrics", #selector(toggleWallpaper), state: config.current.showWallpaper ? .on : .off)
-        add(menu, "Show on Lock Screen", #selector(toggleLockScreen),
+        add(menu, "Show Album Art", #selector(toggleWallpaper), state: config.current.showWallpaper ? .on : .off)
+        add(menu, "Show Controls", #selector(toggleControls), state: config.current.showControls ? .on : .off)
+        add(menu, "Show Lyrics on Lock Screen", #selector(toggleLockScreen),
             state: config.current.showOnLockScreen ? .on : .off).isEnabled = LockScreenSpace.shared != nil
         menu.addItem(displaysItem())
 
@@ -148,6 +149,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     // Everything goes through the config file so a menu toggle survives a
     // restart and a hand edit + Reload Config behaves identically.
     @objc private func toggleWallpaper() { config.update { $0.showWallpaper.toggle() } }
+    @objc private func toggleControls() { config.update { $0.showControls.toggle() } }
     @objc private func toggleLockScreen() { config.update { $0.showOnLockScreen.toggle() } }
     @objc private func useAllDisplays() { config.update { $0.displays = .all } }
     @objc private func useMainDisplay() { config.update { $0.displays = .main } }

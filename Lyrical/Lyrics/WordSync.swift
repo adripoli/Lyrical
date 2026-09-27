@@ -56,7 +56,17 @@ enum WordSync {
         let (ours, tokens) = letters(of: lines)
         let theirs = letters(of: segments)
         guard !ours.isEmpty, !theirs.isEmpty, ours.count * theirs.count <= maxCells else { return nil }
-        let a = ours.map(\.letter), b = theirs.map(\.letter)
+        // Aligned as small integers: comparing Characters is grapheme-aware
+        // and costs far more than the millions of cell updates around it.
+        // Equal codes exactly when the Characters are equal, so nothing else changes.
+        var codes: [Character: Int32] = [:]
+        let code = { (letter: Character) -> Int32 in
+            if let known = codes[letter] { return known }
+            let new = Int32(codes.count)
+            codes[letter] = new
+            return new
+        }
+        let a = ours.map { code($0.letter) }, b = theirs.map { code($0.letter) }
 
         let rough = lineMatches(align(a, b), ours, theirs)
         guard let guide = ClockMap.fit(anchors(rough, lines)) else { return nil }
@@ -335,8 +345,8 @@ enum WordSync {
     /// when they're the same letter, and `allowed` lets them pair). Global
     /// alignment where skipping either side's start or end is free, since
     /// either source may have an extra intro or outro line.
-    static func align(_ a: [Character], _ b: [Character],
-                      allowed: ((Int, Int) -> Bool)? = nil) -> [Int?] {
+    static func align<Letter: Equatable>(_ a: [Letter], _ b: [Letter],
+                                         allowed: ((Int, Int) -> Bool)? = nil) -> [Int?] {
         let n = a.count, m = b.count
         guard n > 0, m > 0 else { return [Int?](repeating: nil, count: n) }
         let match: Int32 = 2, mismatch: Int32 = -2, gap: Int32 = -1

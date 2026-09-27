@@ -1,14 +1,18 @@
 # Lyrical
 
-Your desktop, singing along. Lyrical turns the macOS desktop background into
-the time-synced lyrics of whatever the Spotify app is playing. Lines glide
-up an Apple Music-style carousel over a gradient pulled from the album art.
+Your Mac, singing along. While you're using it, Lyrical paints the album art
+of whatever the Spotify app is playing onto the desktop, CoverWall-style: the
+cover, crisp and centred, over a blurred, dimmed copy of itself. Lock the
+screen and the same backdrop stays put while the cover gives way to the
+time-synced lyrics, gliding up an Apple Music-style carousel under a clock.
 
+- CoverWall's control bar floats over the desktop: track, a draggable
+  progress bar, and previous / play-pause / next. Clicking it never pulls
+  focus from the app you're in.
 - Lives in the menu bar: no Dock icon, no windows to manage.
 - Fully click-through: desktop icons, drag-select and right-click still work.
-- Keeps singing on the lock screen, with the same backdrop and a clock of its
-  own. It covers the system's password prompt while music plays, but Touch ID
-  and typing your password work as usual.
+- Lyrics only on the lock screen. They cover the system's password prompt
+  while music plays, but Touch ID and typing your password work as usual.
 - Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics
   database. No account or API key.
 - Words swell and glow as they're sung, on real word timing where it
@@ -17,7 +21,11 @@ up an Apple Music-style carousel over a gradient pulled from the album art.
   testing). Otherwise the timing is estimated from syllables and the gap to
   the next line, using a model fitted to ~17,000 real word stamps.
 - Light on CPU: only the lit line redraws, and only while music plays.
-  Set `animateWords` to `false` for zero CPU between lines.
+  Set `animateWords` to `false` for zero CPU between lines. The progress
+  bar redraws only when it visibly moves (a pixel, or a second on the
+  clock), nothing redraws while the displays sleep, and Low Power Mode
+  halves the lock screen's frame rate. Spotify is asked for three values a
+  second, and for the full track only when it changes.
 
 Requires macOS 26 and the Spotify desktop app. Sibling of
 [CoverWall](https://github.com/adripoli/CoverWall).
@@ -38,8 +46,9 @@ Access…**. Ad-hoc builds lose that grant on every rebuild; reset it with
 
 | Item | Does |
 |---|---|
-| Show Lyrics | Hide or show the wallpaper |
-| Show on Lock Screen | Hide or show the lyrics while the screen is locked |
+| Show Album Art | Hide or show the album art on the desktop |
+| Show Controls | Hide or show the progress bar and transport buttons |
+| Show Lyrics on Lock Screen | Hide or show the lyrics while the screen is locked |
 | Displays | All displays, or the main one only |
 | Lyrics Earlier / Later | Shift timing by 0.25 s if a song feels out of sync |
 | Reset Timing | Back to the default +0.25 s lead |
@@ -64,9 +73,16 @@ defaults rather than crashing.
 | `blurInactive` | `true` | blur lines as they get further from the lit one |
 | `animateWords` | `true` | each word grows and glows as it's sung (redraws the lit line every frame while playing) |
 | `lookUpWordTiming` | `true` | look up real word timing on NetEase Cloud Music (sends the song's title and artist there) |
-| `backdropBrightnessCap` | `0.35` | keeps the gradient dark enough for white text |
+| `backdropBlurRadius` | `40` | blur of the full-screen backdrop, both surfaces |
+| `backdropDim` | `0.35` | 0–1, black laid over the backdrop so white text reads |
+| `coverHeightFraction` | `0.55` | desktop cover height, fraction of screen height |
 | `crossfadeDuration` | `0.5` | seconds, between songs |
-| `showWallpaper` | `true` | |
+| `showWallpaper` | `true` | album art on the desktop |
+| `showControls` | `true` | progress bar and transport buttons on the desktop |
+| `controlBarWidth` | `520` | points |
+| `controlBarBottomInset` | `24` | points above the Dock |
+| `controlBarOpacity` / `controlBarHoverOpacity` | `0.7` / `1.0` | at rest / under the pointer |
+| `controlPanelLevel` | `"aboveIcons"` | `aboveIcons` = clickable, over desktop icons. `belowNormal` = tucked under everything, effectively decorative |
 | `showOnLockScreen` | `true` | lyrics over the lock screen (uses private SkyLight calls; off if macOS drops them) |
 | `startAtLogin` | `true` | |
 | `pollIntervalPlaying` / `pollIntervalPaused` | `1.0` / `5.0` | seconds between Spotify polls |

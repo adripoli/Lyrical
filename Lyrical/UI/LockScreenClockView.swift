@@ -4,9 +4,11 @@
 //
 //  On the lock screen the backdrop covers the system's date and time, so we
 //  draw our own in the same spot: date over a large time, top-centre. Like
-//  the macOS 26 lock screen, the time is Liquid Glass cut in the shape of the
-//  digits, refracting the backdrop behind it, set in the same clock face and
-//  weight the user picked in System Settings › Wallpaper › Clock Appearance.
+//  the macOS 26 lock screen, the time is set in the same clock face and weight
+//  the user picked in System Settings › Wallpaper › Clock Appearance. Its
+//  digits are drawn exactly like the date above them (same white, opacity and
+//  shadow) rather than as Liquid Glass, whose tint mixes with the backdrop and
+//  reads darker than the date.
 //
 
 import AppKit
@@ -24,15 +26,11 @@ struct LockScreenClockView: View {
             VStack(spacing: screenSize.height * 0.02) {
                 Text(context.date, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day())
                     .font(.system(size: screenSize.height * 0.028, weight: .semibold, design: design))
-                    .foregroundStyle(.white)
-                    .opacity(0.8)
-                    .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
-                // glassEffect takes any Shape, so shaping the glass as the
-                // glyph outlines gives glass digits rather than a glass pill.
-                Color.clear
+                    .modifier(ClockInk())
+                GlyphShape(text: Self.time(context.date), font: timeFont)
+                    .fill(.white)
                     .frame(width: screenSize.width, height: timeSize * 0.8)
-                    .glassEffect(.clear.tint(.white.opacity(0.8)),
-                                 in: GlyphShape(text: Self.time(context.date), font: timeFont))
+                    .modifier(ClockInk())
                     .accessibilityElement()
                     .accessibilityLabel(Text(context.date, format: .dateTime.hour().minute()))
             }
@@ -54,8 +52,19 @@ struct LockScreenClockView: View {
     }
 }
 
-/// The outlines of `text` in `font`, centred in the rect, so a material can be
-/// clipped to the letterforms.
+/// The one colour both lines of the clock are drawn in, so the time can't
+/// drift from the date.
+struct ClockInk: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(.white)
+            .opacity(0.8)
+            .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
+    }
+}
+
+/// The outlines of `text` in `font`, centred in the rect, so the time can be
+/// drawn in the system clock face's letterforms.
 struct GlyphShape: Shape {
     let text: String
     // Shape is Sendable; CTFont is immutable and safe to share across threads.

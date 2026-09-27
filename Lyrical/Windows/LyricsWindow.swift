@@ -3,11 +3,12 @@
 //  Lyrical
 //
 //  The wallpaper itself: a borderless, transparent, full-screen window pinned
-//  to the desktop window level. That puts it above the real wallpaper and
+//  to the desktop window level, showing the album cover. That puts it above the real wallpaper and
 //  below Finder's desktop icons. It ignores mouse events entirely, so icon
 //  clicks, drag-select, right-click menus and drag-and-drop all still work.
 //
-//  The lock-screen variant looks the same, plus a clock. It lives in
+//  The lock-screen variant has the same backdrop, with the lyrics and a clock
+//  in place of the cover. It lives in
 //  LockScreenSpace, which is composited over the whole lock screen: nothing
 //  can go between the lock screen's background and its clock and password
 //  prompt, so matching the desktop means covering those. Touch ID and typing
@@ -26,12 +27,14 @@ final class LyricsWindow: NSWindow {
     private let hosting: NSHostingView<LyricsWallpaperView>
 
     init(screen: NSScreen, surface: LyricsSurface = .desktop, nowPlaying: NowPlayingStore,
-         lyrics: LyricsStore, palette: PaletteStore, config: LyricalConfig) {
+         lyrics: LyricsStore, artwork: ArtworkStore, config: LyricalConfig) {
         self.surface = surface
         hosting = NSHostingView(rootView: LyricsWallpaperView(
-            nowPlaying: nowPlaying, lyrics: lyrics, palette: palette,
-            config: config, screenSize: screen.frame.size,
-            showsClock: surface == .lockScreen))
+            nowPlaying: nowPlaying, lyrics: lyrics, artwork: artwork,
+            config: config, screenSize: screen.frame.size, surface: surface))
+        // Always exactly the screen, set explicitly: no view update should
+        // re-measure the content or re-solve the window's constraints.
+        hosting.sizingOptions = []
 
         super.init(contentRect: screen.frame, styleMask: [.borderless], backing: .buffered, defer: false)
 
@@ -70,5 +73,11 @@ final class LyricsWindow: NSWindow {
 
     func apply(config: LyricalConfig) {
         hosting.rootView.config = config
+    }
+
+    /// Whether anyone can see the window. While not, nothing in it animates.
+    func setLive(_ live: Bool) {
+        guard hosting.rootView.isLive != live else { return }
+        hosting.rootView.isLive = live
     }
 }

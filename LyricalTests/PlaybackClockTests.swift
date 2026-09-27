@@ -64,6 +64,20 @@ final class PlaybackClockTests: XCTestCase {
         XCTAssertEqual(clock, after)
     }
 
+    /// A poll that lands where the clock already predicted changes nothing,
+    /// so nobody observing the clock redraws for it.
+    func testAgreesWithAReadingItPredicted() {
+        let clock = makeClock()
+        XCTAssertTrue(clock.agrees(position: 40.02, uptime: 1_010, isPlaying: true, duration: 213))
+        XCTAssertFalse(clock.agrees(position: 40.2, uptime: 1_010, isPlaying: true, duration: 213))
+    }
+
+    func testDisagreesOnAnythingButThePlayhead() {
+        let clock = makeClock()
+        XCTAssertFalse(clock.agrees(position: 40, uptime: 1_010, isPlaying: false, duration: 213))
+        XCTAssertFalse(clock.agrees(position: 40, uptime: 1_010, isPlaying: true, duration: 180))
+    }
+
     func testFractionUsesAnchorOnly() {
         let clock = makeClock(position: 106.5, duration: 213)
         XCTAssertEqual(clock.fraction, 0.5, accuracy: 0.0001)

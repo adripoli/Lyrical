@@ -8,6 +8,12 @@
 //  `tell application` block would otherwise LAUNCH it, which is not something a
 //  wallpaper app should do to you.
 //
+//  Every property read is its own Apple Event, a round trip Spotify answers on
+//  its main thread (~15 ms apiece on an Intel Mac). So the once-a-second poll
+//  asks only for what changes second to second (state, position, track id),
+//  and the full track (name, artist, album, duration, artwork) only when the
+//  id changes: 3 events a poll instead of 9.
+//
 
 import AppKit
 import Foundation
@@ -18,12 +24,23 @@ final class SpotifyBridge: NowPlayingSource, @unchecked Sendable {
 
     /// Internal (not private) so LyricalTests can compile every script's
     /// source text directly — see SpotifyBridgeScriptTests.
-    enum Script: Hashable, CaseIterable { case poll, playPause, next, previous }
+    enum Script: Hashable, CaseIterable { case poll, pollLight, playPause, next, previous }
 
-    private let queue = DispatchQueue(label: "com.lyrical.applescript")
+    /// Each work item drains its own pool: every poll autoreleases a reply's
+    /// worth of descriptors, and a queue that never idles might never drain.
+    private let queue = DispatchQueue(label: "com.lyrical.applescript", autoreleaseFrequency: .workItem)
 
     /// Touched only on `queue`.
     private var compiled: [Script: NSAppleScript] = [:]
+
+    /// The last fully polled track, reused by light polls while its id is the
+    /// one playing. Touched only on `queue`.
+    private var knownTrack: TrackInfo?
+
+    /// Spotify's process from the last time it was looked up. Read from the
+    /// main actor and from `queue`, so guarded by `appLock`.
+    private let appLock = NSLock()
+    private var spotifyApp: NSRunningApplication?
 
     // MARK: - Availability
 
@@ -31,12 +48,22 @@ final class SpotifyBridge: NowPlayingSource, @unchecked Sendable {
     func availability() -> SpotifyAvailability {
         // Running check first: it's the once-a-second path, and it saves a
         // LaunchServices lookup in the common case.
-        let running = NSWorkspace.shared.runningApplications.contains {
-            $0.bundleIdentifier == Self.bundleID
-        }
-        if running { return .running }
+        if isRunning() { return .running }
         return NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleID) == nil
             ? .notInstalled : .notRunning
+    }
+
+    /// Asking a remembered NSRunningApplication whether it has exited is free.
+    /// Walking `runningApplications` for bundle ids, as this once did every
+    /// poll, costs a LaunchServices fetch per app. Both learn of an exit the
+    /// same way (the main run loop), so neither is quicker to notice.
+    private func isRunning() -> Bool {
+        appLock.withLock {
+            if let app = spotifyApp, !app.isTerminated { return true }
+            spotifyApp = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID)
+                .first { !$0.isTerminated }
+            return spotifyApp != nil
+        }
     }
 
     // MARK: - Public API
@@ -67,10 +94,15 @@ final class SpotifyBridge: NowPlayingSource, @unchecked Sendable {
 
     private func pollSync() throws -> NowPlayingSnapshot {
         try requireRunning()
+        if let knownTrack {
+            let light = NowPlayingParser.fields(from: try execute(script(.pollLight)))
+            if let snapshot = NowPlayingParser.snapshot(light: light, known: knownTrack) { return snapshot }
+        }
         let result = try execute(script(.poll))
         guard let snapshot = NowPlayingParser.snapshot(fields: NowPlayingParser.fields(from: result)) else {
             throw SpotifyError.malformedResponse
         }
+        knownTrack = snapshot.track.flatMap { NowPlayingParser.isWorthRemembering($0) ? $0 : nil }
         return snapshot
     }
 
@@ -171,6 +203,26 @@ final class SpotifyBridge: NowPlayingSource, @unchecked Sendable {
                 on error
                   return {playerState, "", "", "", "", "0", pos as text, ""}
                 end try
+              end tell
+            end timeout
+            """
+        case .pollLight:
+            // `id of current track` is one event; `set t to current track`
+            // then `id of t` would be two. The position is read last, so it's
+            // at most one event older than the reply the clock anchors it to.
+            return """
+            with timeout of 2 seconds
+              tell application id "\(Self.bundleID)"
+                set playerState to (player state as text)
+                set trackID to ""
+                try
+                  set trackID to (id of current track) as text
+                end try
+                set pos to 0
+                try
+                  set pos to player position
+                end try
+                return {playerState, trackID, pos as text}
               end tell
             end timeout
             """

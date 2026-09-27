@@ -3,7 +3,7 @@
 //  Lyrical
 //
 //  Builds the stores and forwards NowPlayingStore's changes into
-//  LyricsStore and PaletteStore. The observation loop below is the only
+//  LyricsStore and ArtworkStore. The observation loop below is the only
 //  place the three meet.
 //
 
@@ -13,7 +13,7 @@ import Cocoa
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var nowPlaying: NowPlayingStore?
     private var lyrics: LyricsStore?
-    private var palette: PaletteStore?
+    private var artwork: ArtworkStore?
     private var overlays: OverlayManager?
     private var statusBar: StatusBarController?
     private var configObserver: NSObjectProtocol?
@@ -39,12 +39,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let nowPlaying = NowPlayingStore(config: config)
         let lyrics = LyricsStore(provider: provider, offset: { config.current.lyricsOffset })
-        let palette = PaletteStore(config: config)
-        let overlays = OverlayManager(config: config, nowPlaying: nowPlaying, lyrics: lyrics, palette: palette)
+        let artwork = ArtworkStore(config: config)
+        let overlays = OverlayManager(config: config, nowPlaying: nowPlaying, lyrics: lyrics, artwork: artwork)
 
         self.nowPlaying = nowPlaying
         self.lyrics = lyrics
-        self.palette = palette
+        self.artwork = artwork
         self.overlays = overlays
         self.statusBar = StatusBarController(config: config, nowPlaying: nowPlaying, lyrics: lyrics)
 
@@ -64,11 +64,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         nowPlaying?.stop()
         lyrics?.stop()
-        palette?.stop()
+        artwork?.stop()
         overlays?.stop()
     }
 
-    // MARK: - Now playing -> lyrics + palette
+    // MARK: - Now playing -> lyrics + artwork
 
     /// `withObservationTracking` is one-shot: re-arm from inside onChange or
     /// the wallpaper updates exactly once.
@@ -94,16 +94,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Only Spotify quitting clears the wallpaper. Pausing keeps the song up,
     /// with the carousel held on its line.
     private func sync() {
-        guard let nowPlaying, let lyrics, let palette else { return }
+        guard let nowPlaying, let lyrics, let artwork else { return }
         let track = nowPlaying.availability == .running ? nowPlaying.snapshot.track : nil
         lyrics.setTrack(track)
-        palette.setTrack(track)
+        artwork.setTrack(track)
         lyrics.setClock(nowPlaying.clock)
     }
 
     private func configDidChange() {
         lyrics?.resync()   // lyricsOffset may have changed
-        guard let nowPlaying, nowPlaying.availability == .running else { return }
-        palette?.setTrack(nowPlaying.snapshot.track, force: true)   // brightness cap may have changed
     }
 }

@@ -34,20 +34,24 @@ final class LyricsWallpaperLayoutTests: XCTestCase {
             .appendingPathComponent("lyrical-layout-\(UUID().uuidString).json"))
         let lines = (0..<lineCount).map { LyricLine(time: Double($0) * 4, text: "Line number \($0)", isGap: false) }
         let lyrics = LyricsStore(provider: FixedLyrics(lines: lines), offset: { 0 })
-        lyrics.setTrack(TrackInfo(id: "spotify:track:layout", name: "Song", artist: "Artist", album: "Album",
-                                  duration: Double(lineCount) * 4, artworkURL: nil, isAd: false))
+        let track = TrackInfo(id: "spotify:track:layout", name: "Song", artist: "Artist", album: "Album",
+                              duration: Double(lineCount) * 4, artworkURL: nil, isAd: false)
+        lyrics.setTrack(track)
+        let artwork = ArtworkStore(config: config)
+        defer { artwork.stop() }
+        artwork.setTrack(track)   // no artwork URL: the fallback gradient, synchronously
         await lyrics.waitForPendingFetch()
         guard case .loaded(.synced) = lyrics.state else { throw XCTSkip("lyrics did not load") }
 
         let view = LyricsWallpaperView(nowPlaying: NowPlayingStore(config: config, source: RunningSource()),
-                                       lyrics: lyrics, palette: PaletteStore(config: config),
-                                       config: LyricalConfig(), screenSize: screen)
+                                       lyrics: lyrics, artwork: artwork,
+                                       config: LyricalConfig(), screenSize: screen, surface: .lockScreen)
         let renderer = ImageRenderer(content: view)
         renderer.scale = 1
         let image = try XCTUnwrap(renderer.cgImage)
 
         // Before playback, line 0 is centred on anchorY. Look for white text there;
-        // the backdrop is capped well below this brightness.
+        // the fallback gradient is well below this brightness.
         let metrics = CarouselMetrics(config: LyricalConfig(), screenSize: screen)
         let band = Int(metrics.anchorY - metrics.fontSize)..<Int(metrics.anchorY + metrics.fontSize)
         let rep = NSBitmapImageRep(cgImage: image)

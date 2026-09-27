@@ -17,11 +17,13 @@ import Foundation
 enum DisplayScope: String, Codable { case all, main }
 enum FontDesignOption: String, Codable { case standard = "default", rounded, serif }
 enum TextAlignmentOption: String, Codable { case center, leading }
+enum ControlPanelLevel: String, Codable { case aboveIcons, belowNormal }
 
 struct LyricalConfig: Codable, Equatable {
     var displays: DisplayScope = .all
     var showWallpaper: Bool = true
     var showOnLockScreen: Bool = true
+    var showControls: Bool = true            // progress bar + transport on the desktop
     var startAtLogin: Bool = true
     var pollIntervalPlaying: Double = 1.0
     var pollIntervalPaused: Double = 5.0
@@ -35,7 +37,14 @@ struct LyricalConfig: Codable, Equatable {
     var blurInactive: Bool = true
     var animateWords: Bool = true            // grow each word as it's sung
     var lookUpWordTiming: Bool = true        // real word timing from NetEase where it has it
-    var backdropBrightnessCap: Double = 0.35 // 0…1
+    var backdropBlurRadius: Double = 40
+    var backdropDim: Double = 0.35           // 0…1
+    var coverHeightFraction: Double = 0.55   // of screen height, desktop only
+    var controlBarOpacity: Double = 0.70
+    var controlBarHoverOpacity: Double = 1.0
+    var controlBarBottomInset: Double = 24   // points above the Dock
+    var controlBarWidth: Double = 520
+    var controlPanelLevel: ControlPanelLevel = .aboveIcons
 
     init() {}
 
@@ -43,7 +52,9 @@ struct LyricalConfig: Codable, Equatable {
         case displays, showWallpaper, showOnLockScreen, startAtLogin, pollIntervalPlaying, pollIntervalPaused
         case crossfadeDuration, lyricsOffset, fontSizeFraction, fontDesign, textAlignment
         case columnWidthFraction, anchorYFraction, blurInactive, animateWords, lookUpWordTiming
-        case backdropBrightnessCap
+        case backdropBlurRadius, backdropDim, coverHeightFraction
+        case showControls, controlBarOpacity, controlBarHoverOpacity, controlBarBottomInset
+        case controlBarWidth, controlPanelLevel
     }
 
     /// Per-key decoding so a partial file (or one written by an older/newer
@@ -68,7 +79,15 @@ struct LyricalConfig: Codable, Equatable {
         blurInactive          = try c.decodeIfPresent(Bool.self, forKey: .blurInactive) ?? d.blurInactive
         animateWords          = try c.decodeIfPresent(Bool.self, forKey: .animateWords) ?? d.animateWords
         lookUpWordTiming      = try c.decodeIfPresent(Bool.self, forKey: .lookUpWordTiming) ?? d.lookUpWordTiming
-        backdropBrightnessCap = try c.decodeIfPresent(Double.self, forKey: .backdropBrightnessCap) ?? d.backdropBrightnessCap
+        backdropBlurRadius    = try c.decodeIfPresent(Double.self, forKey: .backdropBlurRadius) ?? d.backdropBlurRadius
+        backdropDim           = try c.decodeIfPresent(Double.self, forKey: .backdropDim) ?? d.backdropDim
+        coverHeightFraction   = try c.decodeIfPresent(Double.self, forKey: .coverHeightFraction) ?? d.coverHeightFraction
+        showControls          = try c.decodeIfPresent(Bool.self, forKey: .showControls) ?? d.showControls
+        controlBarOpacity     = try c.decodeIfPresent(Double.self, forKey: .controlBarOpacity) ?? d.controlBarOpacity
+        controlBarHoverOpacity = try c.decodeIfPresent(Double.self, forKey: .controlBarHoverOpacity) ?? d.controlBarHoverOpacity
+        controlBarBottomInset = try c.decodeIfPresent(Double.self, forKey: .controlBarBottomInset) ?? d.controlBarBottomInset
+        controlBarWidth       = try c.decodeIfPresent(Double.self, forKey: .controlBarWidth) ?? d.controlBarWidth
+        controlPanelLevel     = try c.decodeIfPresent(ControlPanelLevel.self, forKey: .controlPanelLevel) ?? d.controlPanelLevel
     }
 }
 

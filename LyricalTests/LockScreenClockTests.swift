@@ -5,6 +5,7 @@
 //  The lock-screen clock stands in for the system's, so it should read the same.
 //
 
+import SwiftUI
 import XCTest
 @testable import Lyrical
 
@@ -94,5 +95,36 @@ final class LockScreenClockTests: XCTestCase {
         let path = GlyphShape(text: "12:34", font: font).path(in: CGRect(x: 0, y: 0, width: 1000, height: 200))
         XCTAssertFalse(path.isEmpty)
         XCTAssertLessThan(path.boundingRect.height, 160)
+    }
+
+    /// The time used to be tinted Liquid Glass, which mixed with the backdrop
+    /// and came out darker than the date. Both lines must now be the same ink.
+    @MainActor
+    func testTimeIsTheSameColourAsTheDate() throws {
+        let size = CGSize(width: 1440, height: 900)
+        let renderer = ImageRenderer(content: ZStack {
+            Color.black
+            LockScreenClockView(screenSize: size, design: .default)
+        }.frame(width: size.width, height: size.height))
+        renderer.scale = 1
+        let rep = NSBitmapImageRep(cgImage: try XCTUnwrap(renderer.cgImage))
+
+        // Layout from the view: top padding 0.075h, date ~0.028h tall, 0.02h gap,
+        // then the time's 0.8 × 0.12h frame.
+        func brightest(_ rows: Range<Int>) -> CGFloat {
+            var best: CGFloat = 0
+            for y in rows {
+                for x in stride(from: 400, to: 1040, by: 1) {
+                    guard let c = rep.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { continue }
+                    best = max(best, c.brightnessComponent)
+                }
+            }
+            return best
+        }
+        let date = brightest(Int(size.height * 0.075)..<Int(size.height * 0.11))
+        let time = brightest(Int(size.height * 0.13)..<Int(size.height * 0.22))
+
+        XCTAssertGreaterThan(date, 0.5, "date not found")
+        XCTAssertEqual(time, date, accuracy: 0.02)
     }
 }

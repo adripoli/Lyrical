@@ -201,4 +201,12 @@ final class SungLineVariantTests: XCTestCase {
         let variants = SungLineVariant.variants(for: ["Hello there", "and so on", "", "Hello, there!"].map(line))
         XCTAssertEqual(variants[0], variants[3])
     }
+
+    /// The lit line redraws every frame while it plays. Low Power Mode, which
+    /// the user turns on to stretch the battery, halves that; otherwise it
+    /// runs at the display's own rate.
+    func testLitLineFrameRateHalvesInLowPowerMode() {
+        XCTAssertNil(SungLineView.minimumFrameInterval(lowPower: false))
+        XCTAssertEqual(SungLineView.minimumFrameInterval(lowPower: true), 1.0 / 30)
+    }
 }

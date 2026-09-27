@@ -30,7 +30,10 @@ actor ArtworkCache {
         self.directory = directory
         self.maxFiles = maxFiles
         self.maxBytes = maxBytes
-        memory.countLimit = 12
+        // A decoded 640px cover is ~1.6 MB. Only the one on screen is in use;
+        // a few more cover skipping back and forth, and the disk tier serves
+        // anything older in milliseconds.
+        memory.countLimit = 4
         // No trim() here: an actor init can't await, and ArtworkStore already runs
         // one immediately on launch. Keeps tests free of a racing background task.
     }

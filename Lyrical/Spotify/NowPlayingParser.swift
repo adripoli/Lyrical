@@ -56,6 +56,32 @@ enum NowPlayingParser {
         return NowPlayingSnapshot(state: state, position: position, track: track)
     }
 
+    /// The light poll's reply (state, id, positionSec) on top of `known`, the
+    /// track the last full poll returned. nil means the full poll is needed:
+    /// the track changed, nothing is known yet, or the reply made no sense.
+    static func snapshot(light fields: [String?], known: TrackInfo?) -> NowPlayingSnapshot? {
+        guard fields.count >= 3 else { return nil }
+        let id = (fields[1] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let track: TrackInfo?
+        if id.isEmpty {
+            track = nil
+        } else if let known, known.id == id {
+            track = known
+        } else {
+            return nil
+        }
+        return NowPlayingSnapshot(state: playerState(fields[0]),
+                                  position: max(number(fields[2]) ?? 0, 0),
+                                  track: track)
+    }
+
+    /// Whether a fully polled track can stand in for its id on later light
+    /// polls. One Spotify is still loading has no name yet, and must be polled
+    /// in full again so its details arrive as soon as Spotify has them.
+    static func isWorthRemembering(_ track: TrackInfo) -> Bool {
+        !track.name.isEmpty
+    }
+
     /// "spotify:image:<hash>" -> "https://i.scdn.co/image/<hash>"; https passes
     /// through; empty or unrecognized (local files, podcasts) -> nil.
     static func normalizeArtworkURL(_ raw: String?) -> URL? {

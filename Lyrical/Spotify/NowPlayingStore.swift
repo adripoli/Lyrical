@@ -16,6 +16,8 @@ import Foundation
 @Observable
 final class NowPlayingStore {
     private(set) var availability: SpotifyAvailability = .notRunning
+    /// Its `position` is as of the last change the clock didn't predict; the
+    /// live playhead is `clock` / `displayPosition`.
     private(set) var snapshot: NowPlayingSnapshot = .idle
     private(set) var clock = PlaybackClock()
     private(set) var permission: AutomationPermissionState = .undetermined
@@ -47,6 +49,7 @@ final class NowPlayingStore {
     @ObservationIgnored private var consecutiveFailures = 0
 
     private static let permissionRecheckInterval: TimeInterval = 10
+    private static let transportConfirmDelay: Duration = .milliseconds(250)
 
     init(config: ConfigStore,
          source: NowPlayingSource? = nil,
@@ -122,7 +125,45 @@ final class NowPlayingStore {
         poll()
     }
 
-    // MARK: - Spotify
+    // MARK: - Transport
+
+    func playPause() {
+        guard canControl else { return }
+
+        let uptime = ProcessInfo.processInfo.systemUptime
+        let position = clock.position(at: uptime)
+        let willPlay = snapshot.state != .playing
+
+        send(.playPause)
+        snapshot.state = willPlay ? .playing : .paused
+        snapshot.position = position
+        clock.reanchor(position: position, uptime: uptime,
+                       isPlaying: willPlay, duration: clock.duration)
+    }
+
+    func next() {
+        guard canControl, snapshot.track?.isAd != true else { return }
+        send(.next)
+        anchorAtTrackStart()
+    }
+
+    func previous() {
+        guard canControl, snapshot.track?.isAd != true else { return }
+        send(.previous)
+        anchorAtTrackStart()
+    }
+
+    func seek(to position: TimeInterval) {
+        guard canControl else { return }
+
+        let clamped = min(max(position, 0), max(snapshot.track?.duration ?? 0, 0))
+        send(.seek(clamped))
+        snapshot.position = clamped
+        clock.reanchor(position: clamped,
+                       uptime: ProcessInfo.processInfo.systemUptime,
+                       isPlaying: snapshot.state == .playing,
+                       duration: clock.duration)
+    }
 
     func openSpotify() {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: SpotifyBridge.bundleID) else {
@@ -133,6 +174,33 @@ final class NowPlayingStore {
         configuration.activates = true
         NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, error in
             if let error { NSLog("[Lyrical] openSpotify failed: %@", "\(error)") }
+        }
+    }
+
+    private var canControl: Bool {
+        availability == .running && permission != .denied
+    }
+
+    /// Skips land at 0 in the overwhelmingly common case; the confirming poll
+    /// 250ms later fixes it if Spotify disagreed.
+    private func anchorAtTrackStart() {
+        snapshot.position = 0
+        clock.reanchor(position: 0,
+                       uptime: ProcessInfo.processInfo.systemUptime,
+                       isPlaying: true,
+                       duration: clock.duration)
+    }
+
+    private func send(_ command: TransportCommand) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.source.send(command)
+            } catch {
+                self.handle(error)
+            }
+            try? await Task.sleep(for: Self.transportConfirmDelay)
+            self.refreshNow()
         }
     }
 
@@ -210,14 +278,21 @@ final class NowPlayingStore {
             cadenceChanged = true
         }
 
-        if snapshot != new { snapshot = new }
-
+        // The playhead moves on every poll, but the clock already predicts it.
+        // Only a reading it didn't expect (a new track or state, a seek, a
+        // stall) republishes the snapshot and re-anchors the clock, so a song
+        // playing steadily wakes no observer between its changes.
         let uptime = ProcessInfo.processInfo.systemUptime
-        let jumped = clock.reanchor(position: new.position,
-                                    uptime: uptime,
-                                    isPlaying: new.state == .playing,
-                                    duration: new.track?.duration ?? 0)
-        if jumped { lastSeekDetectedAt = uptime }
+        let isPlaying = new.state == .playing
+        let duration = new.track?.duration ?? 0
+        let expected = snapshot.state == new.state && snapshot.track == new.track
+            && clock.agrees(position: new.position, uptime: uptime, isPlaying: isPlaying, duration: duration)
+        if !expected {
+            if snapshot != new { snapshot = new }
+            let jumped = clock.reanchor(position: new.position, uptime: uptime,
+                                        isPlaying: isPlaying, duration: duration)
+            if jumped { lastSeekDetectedAt = uptime }
+        }
 
         // Playing <-> paused changes the tick rate; restart the loop so the new
         // interval takes effect now rather than after the old one elapses.

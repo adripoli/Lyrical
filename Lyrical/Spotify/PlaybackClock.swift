@@ -37,6 +37,16 @@ struct PlaybackClock: Equatable {
         return drift > seekThreshold
     }
 
+    /// Whether a fresh reading says nothing the clock doesn't already: same
+    /// play state and duration, and the playhead within `tolerance` of where
+    /// the clock put it. Re-anchoring to such a reading only trades one bit
+    /// of Apple Event latency jitter for another, and wakes every observer.
+    func agrees(position: TimeInterval, uptime: TimeInterval, isPlaying: Bool, duration: TimeInterval,
+                tolerance: TimeInterval = 0.05) -> Bool {
+        isPlaying == self.isPlaying && duration == self.duration
+            && abs(position - self.position(at: uptime)) <= tolerance
+    }
+
     /// Progress of the *anchor*, not of now. Use `position(at:)` / `duration` for live UI.
     var fraction: Double {
         guard duration > 0 else { return 0 }

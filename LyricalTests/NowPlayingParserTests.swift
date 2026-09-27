@@ -121,4 +121,44 @@ final class NowPlayingParserTests: XCTestCase {
         XCTAssertEqual(NowPlayingParser.normalizeArtworkURL("  spotify:image:abc123  "),
                        URL(string: "https://i.scdn.co/image/abc123"))
     }
+
+    // MARK: - Light poll
+
+    /// The once-a-second poll only asks for state, track id and position; the
+    /// rest of the track comes from the last full poll while the id matches.
+    private var known: TrackInfo {
+        NowPlayingParser.snapshot(fields: fields())!.track!
+    }
+
+    func testLightPollOnTheKnownTrackReusesItsDetails() throws {
+        let snapshot = try XCTUnwrap(NowPlayingParser.snapshot(
+            light: ["paused", "spotify:track:4uLU6hMCjMI75M1A2tKUQC", "80.5"], known: known))
+        XCTAssertEqual(snapshot.state, .paused)
+        XCTAssertEqual(snapshot.position, 80.5, accuracy: 0.0001)
+        XCTAssertEqual(snapshot.track, known)
+    }
+
+    func testLightPollOnANewTrackAsksForTheFullPoll() {
+        XCTAssertNil(NowPlayingParser.snapshot(light: ["playing", "spotify:track:other", "1"], known: known))
+        XCTAssertNil(NowPlayingParser.snapshot(light: ["playing", "spotify:track:other", "1"], known: nil))
+    }
+
+    func testLightPollWithNoTrackNeedsNothingMore() throws {
+        let snapshot = try XCTUnwrap(NowPlayingParser.snapshot(light: ["stopped", "", "0"], known: known))
+        XCTAssertEqual(snapshot.state, .stopped)
+        XCTAssertNil(snapshot.track)
+    }
+
+    func testMalformedLightPollAsksForTheFullPoll() {
+        XCTAssertNil(NowPlayingParser.snapshot(light: ["playing", "spotify:track:4uLU6hMCjMI75M1A2tKUQC"], known: known))
+        XCTAssertNil(NowPlayingParser.snapshot(light: [], known: known))
+    }
+
+    /// A track Spotify hasn't finished loading must be asked for again, so its
+    /// details land as soon as they exist, as they did when every poll was full.
+    func testOnlyTracksWithANameAreRemembered() {
+        XCTAssertTrue(NowPlayingParser.isWorthRemembering(known))
+        XCTAssertFalse(NowPlayingParser.isWorthRemembering(
+            NowPlayingParser.snapshot(fields: fields(name: ""))!.track!))
+    }
 }
