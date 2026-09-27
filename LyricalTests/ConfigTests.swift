@@ -21,6 +21,7 @@ final class ConfigTests: XCTestCase {
         {
           "displays": "main",
           "showWallpaper": false,
+          "showOnLockScreen": false,
           "startAtLogin": false,
           "pollIntervalPlaying": 2.5,
           "pollIntervalPaused": 30,
@@ -40,6 +41,7 @@ final class ConfigTests: XCTestCase {
 
         XCTAssertEqual(config.displays, .main)
         XCTAssertFalse(config.showWallpaper)
+        XCTAssertFalse(config.showOnLockScreen)
         XCTAssertFalse(config.startAtLogin)
         XCTAssertEqual(config.pollIntervalPlaying, 2.5)
         XCTAssertEqual(config.pollIntervalPaused, 30)

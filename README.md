@@ -6,6 +6,9 @@ up an Apple Music-style carousel over a gradient pulled from the album art.
 
 - Lives in the menu bar: no Dock icon, no windows to manage.
 - Fully click-through: desktop icons, drag-select and right-click still work.
+- Keeps singing on the lock screen, with the same backdrop and a clock of its
+  own. It covers the system's password prompt while music plays, but Touch ID
+  and typing your password work as usual.
 - Lyrics come from [LRCLIB](https://lrclib.net), a free, open lyrics
   database. No account or API key.
 - Words swell and glow as they're sung, on real word timing where it
@@ -36,6 +39,7 @@ Access…**. Ad-hoc builds lose that grant on every rebuild; reset it with
 | Item | Does |
 |---|---|
 | Show Lyrics | Hide or show the wallpaper |
+| Show on Lock Screen | Hide or show the lyrics while the screen is locked |
 | Displays | All displays, or the main one only |
 | Lyrics Earlier / Later | Shift timing by 0.25 s if a song feels out of sync |
 | Reset Timing | Back to the default +0.25 s lead |
@@ -63,6 +67,7 @@ defaults rather than crashing.
 | `backdropBrightnessCap` | `0.35` | keeps the gradient dark enough for white text |
 | `crossfadeDuration` | `0.5` | seconds, between songs |
 | `showWallpaper` | `true` | |
+| `showOnLockScreen` | `true` | lyrics over the lock screen (uses private SkyLight calls; off if macOS drops them) |
 | `startAtLogin` | `true` | |
 | `pollIntervalPlaying` / `pollIntervalPaused` | `1.0` / `5.0` | seconds between Spotify polls |
 

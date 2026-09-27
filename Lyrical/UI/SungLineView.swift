@@ -69,8 +69,12 @@ struct SungWordsRenderer: TextRenderer {
     let centered: Bool
 
     var displayPadding: EdgeInsets {
+        // Vertical only. Horizontal padding makes SwiftUI (macOS 26) wrap the
+        // line in the padded width and centre it there, but draw it from the
+        // unpadded origin: every line lands `leading` points right of centre.
+        // Words swelling past the ends still draw; nothing is clipped sideways.
         let pad = fontSize * 1.2
-        return EdgeInsets(top: pad, leading: pad, bottom: pad, trailing: pad)
+        return EdgeInsets(top: pad, leading: 0, bottom: pad, trailing: 0)
     }
 
     func draw(layout: Text.Layout, in context: inout GraphicsContext) {

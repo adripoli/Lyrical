@@ -5,6 +5,8 @@
 //  Contents of each desktop-level window: backdrop plus either the carousel
 //  or the title card. Everything fades out when Spotify quits, leaving the
 //  user's real wallpaper. Screen size comes from the window, as in CoverWall.
+//  The lock screen gets the same view plus a clock, since the backdrop covers
+//  the system's.
 //
 
 import SwiftUI
@@ -15,6 +17,7 @@ struct LyricsWallpaperView: View {
     let palette: PaletteStore
     var config: LyricalConfig
     var screenSize: CGSize
+    var showsClock = false
 
     private var isVisible: Bool {
         nowPlaying.availability == .running && lyrics.track != nil
@@ -42,6 +45,10 @@ struct LyricsWallpaperView: View {
                     foreground(metrics)
                         .id(foregroundIdentity)
                         .transition(.opacity)
+
+                    if showsClock {
+                        LockScreenClockView(screenSize: screenSize, design: metrics.fontDesign)
+                    }
                 }
                 .transition(.opacity)
             }

@@ -5,7 +5,7 @@
 //  The menu-bar icon and its menu, which is the only chrome Lyrical owns.
 //  From it you can:
 //  - see what's playing and whether lyrics were found
-//  - hide the wallpaper and nudge the timing
+//  - hide the wallpaper or the lock-screen lyrics, and nudge the timing
 //  - refetch lyrics and recover a denied automation grant
 //  - edit the config, toggle the login item, or quit
 //
@@ -78,6 +78,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         add(menu, "Show Lyrics", #selector(toggleWallpaper), state: config.current.showWallpaper ? .on : .off)
+        add(menu, "Show on Lock Screen", #selector(toggleLockScreen),
+            state: config.current.showOnLockScreen ? .on : .off).isEnabled = LockScreenSpace.shared != nil
         menu.addItem(displaysItem())
 
         menu.addItem(.separator())
@@ -146,6 +148,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     // Everything goes through the config file so a menu toggle survives a
     // restart and a hand edit + Reload Config behaves identically.
     @objc private func toggleWallpaper() { config.update { $0.showWallpaper.toggle() } }
+    @objc private func toggleLockScreen() { config.update { $0.showOnLockScreen.toggle() } }
     @objc private func useAllDisplays() { config.update { $0.displays = .all } }
     @objc private func useMainDisplay() { config.update { $0.displays = .main } }
     @objc private func lyricsEarlier() { config.update { $0.lyricsOffset = Self.nudged($0.lyricsOffset, by: Self.offsetStep) } }

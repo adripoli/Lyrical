@@ -21,6 +21,7 @@ enum TextAlignmentOption: String, Codable { case center, leading }
 struct LyricalConfig: Codable, Equatable {
     var displays: DisplayScope = .all
     var showWallpaper: Bool = true
+    var showOnLockScreen: Bool = true
     var startAtLogin: Bool = true
     var pollIntervalPlaying: Double = 1.0
     var pollIntervalPaused: Double = 5.0
@@ -39,7 +40,7 @@ struct LyricalConfig: Codable, Equatable {
     init() {}
 
     enum CodingKeys: String, CodingKey {
-        case displays, showWallpaper, startAtLogin, pollIntervalPlaying, pollIntervalPaused
+        case displays, showWallpaper, showOnLockScreen, startAtLogin, pollIntervalPlaying, pollIntervalPaused
         case crossfadeDuration, lyricsOffset, fontSizeFraction, fontDesign, textAlignment
         case columnWidthFraction, anchorYFraction, blurInactive, animateWords, lookUpWordTiming
         case backdropBrightnessCap
@@ -53,6 +54,7 @@ struct LyricalConfig: Codable, Equatable {
 
         displays              = try c.decodeIfPresent(DisplayScope.self, forKey: .displays) ?? d.displays
         showWallpaper         = try c.decodeIfPresent(Bool.self, forKey: .showWallpaper) ?? d.showWallpaper
+        showOnLockScreen      = try c.decodeIfPresent(Bool.self, forKey: .showOnLockScreen) ?? d.showOnLockScreen
         startAtLogin          = try c.decodeIfPresent(Bool.self, forKey: .startAtLogin) ?? d.startAtLogin
         pollIntervalPlaying   = try c.decodeIfPresent(Double.self, forKey: .pollIntervalPlaying) ?? d.pollIntervalPlaying
         pollIntervalPaused    = try c.decodeIfPresent(Double.self, forKey: .pollIntervalPaused) ?? d.pollIntervalPaused

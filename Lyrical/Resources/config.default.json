@@ -1,6 +1,7 @@
 {
   "displays": "all",
   "showWallpaper": true,
+  "showOnLockScreen": true,
   "startAtLogin": true,
 
   "lyricsOffset": 0.25,

@@ -6,6 +6,10 @@
 //  reality: display hot-plug, resolution changes, display sleep and fast user
 //  switching. While the screens sleep, the Spotify poller is stopped.
 //
+//  While the screen is locked it also owns a second set, with a clock, on the
+//  lock screen. Those only exist between lock and unlock: their space sits
+//  above everything, so a leftover one would float over the unlocked desktop.
+//
 
 import AppKit
 
@@ -18,10 +22,12 @@ final class OverlayManager {
     private let palette: PaletteStore
 
     private var windows: [CGDirectDisplayID: LyricsWindow] = [:]
+    private var lockScreenWindows: [CGDirectDisplayID: LyricsWindow] = [:]
     private var observers: [NSObjectProtocol] = []
     private var reconcileWork: DispatchWorkItem?
     private var isRunning = false
     private var isScreenAsleep = false
+    private var isScreenLocked = false
 
     init(config: ConfigStore, nowPlaying: NowPlayingStore, lyrics: LyricsStore, palette: PaletteStore) {
         self.config = config
@@ -33,9 +39,11 @@ final class OverlayManager {
     deinit {
         let center = NotificationCenter.default
         let workspace = NSWorkspace.shared.notificationCenter
+        let distributed = DistributedNotificationCenter.default()
         for observer in observers {
             center.removeObserver(observer)
             workspace.removeObserver(observer)
+            distributed.removeObserver(observer)
         }
     }
 
@@ -44,6 +52,7 @@ final class OverlayManager {
     func start() {
         guard !isRunning else { return }
         isRunning = true
+        isScreenLocked = LockScreenSpace.isScreenLocked
         registerObservers()
         reconcile()
     }
@@ -55,12 +64,15 @@ final class OverlayManager {
         reconcileWork = nil
         removeObservers()
         for window in windows.values { window.orderOut(nil) }
+        for window in lockScreenWindows.values { window.orderOut(nil) }
         windows.removeAll()
+        lockScreenWindows.removeAll()
     }
 
     func applyConfig() {
         let current = config.current
         for window in windows.values { window.apply(config: current) }
+        for window in lockScreenWindows.values { window.apply(config: current) }
         reconcile()
     }
 
@@ -91,8 +103,25 @@ final class OverlayManager {
             }
         }
 
+        let wantsLockScreen = isScreenLocked && current.showOnLockScreen && LockScreenSpace.shared != nil
+        let wantedOnLockScreen = wantsLockScreen ? wanted : []
+        for (id, window) in lockScreenWindows where byID[id] == nil || !wantedOnLockScreen.contains(id) {
+            window.orderOut(nil)
+            lockScreenWindows[id] = nil
+        }
+        for id in wantedOnLockScreen {
+            guard let screen = byID[id] else { continue }
+            if let existing = lockScreenWindows[id] {
+                existing.reposition(to: screen)
+            } else {
+                lockScreenWindows[id] = LyricsWindow(screen: screen, surface: .lockScreen, nowPlaying: nowPlaying,
+                                                     lyrics: lyrics, palette: palette, config: current)
+            }
+        }
+
         applyVisibility()
-        NSLog("[Lyrical] reconciled windows for %d display(s)", windows.count)
+        NSLog("[Lyrical] reconciled windows for %d display(s), %d on the lock screen",
+              windows.count, lockScreenWindows.count)
     }
 
     /// Screen-parameter notifications arrive in bursts; only the last matters.
@@ -110,10 +139,17 @@ final class OverlayManager {
         for window in windows.values {
             if visible { window.orderFrontRegardless() } else { window.orderOut(nil) }
         }
+        // Adopt before ordering in, so the window never shows at its own
+        // level over the desktop, even for a frame.
+        for window in lockScreenWindows.values {
+            LockScreenSpace.shared?.adopt(window)
+            window.orderFrontRegardless()
+        }
         // Occlusion tracking isn't reliable at the desktop window level on
         // macOS 26 (see CoverWall), so polling is gated on visibility and
         // display sleep only.
-        nowPlaying.setActive(!isScreenAsleep && visible && !windows.isEmpty)
+        let onDesktop = visible && !windows.isEmpty
+        nowPlaying.setActive(!isScreenAsleep && (onDesktop || !lockScreenWindows.isEmpty))
     }
 
     // MARK: - Observers
@@ -144,14 +180,25 @@ final class OverlayManager {
                 MainActor.assumeIsolated { self?.handleWake() }
             })
         }
+
+        let distributed = DistributedNotificationCenter.default()
+        for (name, locked) in [("com.apple.screenIsLocked", true), ("com.apple.screenIsUnlocked", false)] {
+            observers.append(distributed.addObserver(
+                forName: Notification.Name(name), object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.setScreenLocked(locked) }
+            })
+        }
     }
 
     private func removeObservers() {
         let center = NotificationCenter.default
         let workspace = NSWorkspace.shared.notificationCenter
+        let distributed = DistributedNotificationCenter.default()
         for observer in observers {
             center.removeObserver(observer)
             workspace.removeObserver(observer)
+            distributed.removeObserver(observer)
         }
         observers.removeAll()
     }
@@ -163,8 +210,19 @@ final class OverlayManager {
 
     private func handleWake() {
         isScreenAsleep = false
+        // A lock or unlock notification can go missing across sleep; the
+        // session dictionary is the source of truth.
+        isScreenLocked = LockScreenSpace.isScreenLocked
         reconcile()               // displays can come back with different geometry
         nowPlaying.refreshNow()
+    }
+
+    private func setScreenLocked(_ locked: Bool) {
+        guard locked != isScreenLocked else { return }
+        isScreenLocked = locked
+        NSLog("[Lyrical] screen %@", locked ? "locked" : "unlocked")
+        reconcile()
+        if locked { nowPlaying.refreshNow() }
     }
 
     // MARK: - Screens
