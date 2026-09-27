@@ -36,4 +36,14 @@ final class LockScreenClockTests: XCTestCase {
         XCTAssertEqual(LockScreenClockView.time(date(18, 21), calendar: calendar, locale: de), "18:21")
         XCTAssertEqual(LockScreenClockView.time(date(0, 7), calendar: calendar, locale: de), "0:07")
     }
+
+    func testGlyphShapeIsCentredInkOfTheDigits() {
+        let rect = CGRect(x: 0, y: 0, width: 1000, height: 200)
+        let path = GlyphShape(text: "12:34", size: 160, design: .default).path(in: rect)
+        let ink = path.boundingRect
+        XCTAssertFalse(path.isEmpty)
+        XCTAssertEqual(ink.midX, rect.midX, accuracy: 0.5)
+        XCTAssertEqual(ink.midY, rect.midY, accuracy: 0.5)
+        XCTAssertLessThan(ink.height, 160)
+    }
 }
